@@ -18,7 +18,7 @@ func findConfig(requestedConfig string) *os.File {
 	configs := []string{
 		"./links",
 		"~/.config/golinks/links",
-		"/etc/golinks/config",
+		"/etc/golinks/links",
 	}
 	errs := []error{}
 	if requestedConfig != "" {
