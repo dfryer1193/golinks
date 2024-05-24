@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"unicode"
 
 	"github.com/fsnotify/fsnotify"
 )
@@ -52,44 +53,49 @@ func getHomeDir() string {
 func findConfig(requestedConfig string) (string, *os.File) {
 	homedir := getHomeDir()
 	configs := []string{
+		requestedConfig,
 		"./links",
 		homedir + "/.config/golinks/links",
 		"/etc/golinks/links",
 	}
 	errs := []error{}
-	if requestedConfig != "" {
-		fpath, err := filepath.Abs(requestedConfig)
-		if err == nil {
-			file, err := os.OpenFile(fpath, os.O_RDONLY, 0644)
-			if err == nil {
-				fmt.Printf("Using config file %s\n", requestedConfig)
-				return requestedConfig, file
-			}
-		}
-		errs = append(errs, err)
-	}
 
 	for _, config := range configs {
-		fpath, err := filepath.Abs(requestedConfig)
-		if err == nil {
-
-			file, err := os.OpenFile(fpath, os.O_RDONLY, 0644)
-			if err == nil {
-				fmt.Printf("Using config file %s\n", config)
-				return config, file
-			}
+		if config == "" {
+			continue
+		}
+		file, err := openFile(config)
+		if err == nil { // Note the deviation from the standard err != nil
+			return config, file
 		}
 		errs = append(errs, err)
 	}
 
 	log.Fatal("Could not find link config. Errors: ", errs)
-	return "", nil // unreachable code
+	panic(errs)
+}
+
+func openFile(path string) (*os.File, error) {
+	fpath, err := filepath.Abs(path)
+	if err != nil {
+		return nil, err
+	}
+
+	file, err := os.OpenFile(fpath, os.O_RDONLY, 0644)
+	if err != nil {
+		return nil, err
+	}
+
+	return file, nil
 }
 
 func parseLine(line string, lineNum int) (string, *url.URL) {
-	parts := strings.Split(strings.TrimSpace(line), " ")
+	parts := strings.FieldsFunc(strings.TrimSpace(line), func(c rune) bool { return unicode.IsSpace(c) })
 	if len(parts) != 2 {
-		log.Fatalf("Malformed config (L%d): each line must have exactly two entries.", lineNum)
+		if len(parts) == 0 {
+			return "", nil
+		}
+		log.Fatalf("Malformed config (L%d): each non-empty line must have exactly two entries.", lineNum)
 	}
 
 	target, err := url.Parse(parts[1])
@@ -101,7 +107,6 @@ func parseLine(line string, lineNum int) (string, *url.URL) {
 }
 
 func parseConfig(filePtr *os.File) map[string]url.URL {
-	// TODO: Ensure file ends with a newline
 	linkMap := make(map[string]url.URL)
 	defer filePtr.Close()
 
@@ -109,8 +114,12 @@ func parseConfig(filePtr *os.File) map[string]url.URL {
 
 	lineNum := 0
 	for scanner.Scan() {
+		txt := scanner.Text()
 		lineNum++
-		key, target := parseLine(scanner.Text(), lineNum)
+		key, target := parseLine(txt, lineNum)
+		if key == "" && target == nil {
+			continue
+		}
 		linkMap[key] = *target
 	}
 
@@ -122,7 +131,7 @@ func (l *LinkMap) watchConfig(watcher *fsnotify.Watcher) {
 	name := filepath.Base(l.configPath)
 	err := watcher.Add(dir)
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println("Failed to add watcher on config dir. Config will not live reload")
 	}
 	for {
 		select {
@@ -134,7 +143,6 @@ func (l *LinkMap) watchConfig(watcher *fsnotify.Watcher) {
 				log.Fatal(err)
 			}
 			if event.Name == name && (event.Has(fsnotify.Write) || event.Has(fsnotify.Create)) {
-				fmt.Println("Updating...")
 				l.update()
 			}
 		case err, ok := <-watcher.Errors:
