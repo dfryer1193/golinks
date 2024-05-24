@@ -17,7 +17,8 @@ import (
 type LinkMap struct {
 	configPath string
 	m          map[string]url.URL
-	lock       sync.RWMutex
+	mapLock    *sync.RWMutex
+	fileLock   *sync.RWMutex
 }
 
 func NewLinkMap(requestedConfig string) *LinkMap {
@@ -30,6 +31,8 @@ func NewLinkMap(requestedConfig string) *LinkMap {
 	linkMap := LinkMap{
 		configPath: path,
 		m:          parseConfig(config),
+		mapLock:    &sync.RWMutex{},
+		fileLock:   &sync.RWMutex{},
 	}
 
 	go linkMap.watchConfig(watcher)
@@ -98,6 +101,7 @@ func parseLine(line string, lineNum int) (string, *url.URL) {
 }
 
 func parseConfig(filePtr *os.File) map[string]url.URL {
+	// TODO: Ensure file ends with a newline
 	linkMap := make(map[string]url.URL)
 	defer filePtr.Close()
 
@@ -149,14 +153,31 @@ func (l *LinkMap) update() {
 	}
 	defer file.Close()
 
-	l.lock.Lock()
-	defer l.lock.Unlock()
+	l.mapLock.Lock()
+	defer l.mapLock.Unlock()
 	l.m = parseConfig(file)
 }
 
 func (l *LinkMap) Get(key string) (url.URL, bool) {
-	l.lock.RLock()
-	defer l.lock.RUnlock()
+	l.mapLock.RLock()
+	defer l.mapLock.RUnlock()
 	target, exists := l.m[key]
 	return target, exists
+}
+
+func (l *LinkMap) Put(key string, target url.URL) error {
+	l.fileLock.Lock()
+	defer l.fileLock.Unlock()
+
+	file, err := os.OpenFile(l.configPath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	if _, err := file.WriteString(key + " " + target.String() + "\n"); err != nil {
+		return err
+	}
+
+	return nil
 }
