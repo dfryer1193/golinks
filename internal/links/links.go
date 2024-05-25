@@ -66,6 +66,7 @@ func findConfig(requestedConfig string) (string, *os.File) {
 		}
 		file, err := openFile(config)
 		if err == nil { // Note the deviation from the standard err != nil
+			fmt.Printf("Using config file %s\n", config)
 			return config, file
 		}
 		errs = append(errs, err)
@@ -142,7 +143,8 @@ func (l *LinkMap) watchConfig(watcher *fsnotify.Watcher) {
 			if err != nil {
 				log.Fatal(err)
 			}
-			if event.Name == name && (event.Has(fsnotify.Write) || event.Has(fsnotify.Create)) {
+			if filepath.Base(event.Name) == name && (event.Has(fsnotify.Write) || event.Has(fsnotify.Create)) {
+				fmt.Println("Config file updated, reloading...")
 				l.update()
 			}
 		case err, ok := <-watcher.Errors:
@@ -163,6 +165,7 @@ func (l *LinkMap) update() {
 
 	l.mapLock.Lock()
 	defer l.mapLock.Unlock()
+	fmt.Printf("Reading config file {%s}\n", l.configPath)
 	l.m = parseConfig(file)
 }
 
