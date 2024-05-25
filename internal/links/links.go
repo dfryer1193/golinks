@@ -6,41 +6,81 @@ import (
 	"log"
 	"net/url"
 	"os"
+	"os/user"
+	"path/filepath"
 	"strings"
+	"sync"
+
+	"github.com/fsnotify/fsnotify"
 )
 
-func NewLinkMap(requestedConfig string) map[string]url.URL {
-	config := findConfig(requestedConfig)
-	return parseConfig(config)
+type LinkMap struct {
+	configPath string
+	m          map[string]url.URL
+	lock       sync.RWMutex
 }
 
-func findConfig(requestedConfig string) *os.File {
+func NewLinkMap(requestedConfig string) *LinkMap {
+	path, config := findConfig(requestedConfig)
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	linkMap := LinkMap{
+		configPath: path,
+		m:          parseConfig(config),
+	}
+
+	go linkMap.watchConfig(watcher)
+
+	return &linkMap
+}
+
+func getHomeDir() string {
+	user, err := user.Current()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return user.HomeDir
+}
+
+func findConfig(requestedConfig string) (string, *os.File) {
+	homedir := getHomeDir()
 	configs := []string{
 		"./links",
-		"~/.config/golinks/links",
+		homedir + "/.config/golinks/links",
 		"/etc/golinks/links",
 	}
 	errs := []error{}
 	if requestedConfig != "" {
-		file, err := os.OpenFile(requestedConfig, os.O_RDONLY, 0644)
+		fpath, err := filepath.Abs(requestedConfig)
 		if err == nil {
-			fmt.Printf("Using config file %s\n", requestedConfig)
-			return file
+			file, err := os.OpenFile(fpath, os.O_RDONLY, 0644)
+			if err == nil {
+				fmt.Printf("Using config file %s\n", requestedConfig)
+				return requestedConfig, file
+			}
 		}
 		errs = append(errs, err)
 	}
 
 	for _, config := range configs {
-		file, err := os.OpenFile(config, os.O_RDONLY, 0644)
+		fpath, err := filepath.Abs(requestedConfig)
 		if err == nil {
-			fmt.Printf("Using config file %s", config)
-			return file
+
+			file, err := os.OpenFile(fpath, os.O_RDONLY, 0644)
+			if err == nil {
+				fmt.Printf("Using config file %s\n", config)
+				return config, file
+			}
 		}
 		errs = append(errs, err)
 	}
 
 	log.Fatal("Could not find link config. Errors: ", errs)
-	return nil
+	return "", nil // unreachable code
 }
 
 func parseLine(line string, lineNum int) (string, *url.URL) {
@@ -71,4 +111,52 @@ func parseConfig(filePtr *os.File) map[string]url.URL {
 	}
 
 	return linkMap
+}
+
+func (l *LinkMap) watchConfig(watcher *fsnotify.Watcher) {
+	dir := filepath.Dir(l.configPath)
+	name := filepath.Base(l.configPath)
+	err := watcher.Add(dir)
+	if err != nil {
+		log.Fatal(err)
+	}
+	for {
+		select {
+		case event, ok := <-watcher.Events:
+			if !ok {
+				return
+			}
+			if err != nil {
+				log.Fatal(err)
+			}
+			if event.Name == name && (event.Has(fsnotify.Write) || event.Has(fsnotify.Create)) {
+				fmt.Println("Updating...")
+				l.update()
+			}
+		case err, ok := <-watcher.Errors:
+			if !ok {
+				return
+			}
+			fmt.Println(err)
+		}
+	}
+}
+
+func (l *LinkMap) update() {
+	file, err := os.OpenFile(l.configPath, os.O_RDONLY, 0644)
+	if err != nil {
+		log.Fatalf("Could not open config %s for reading.", l.configPath)
+	}
+	defer file.Close()
+
+	l.lock.Lock()
+	defer l.lock.Unlock()
+	l.m = parseConfig(file)
+}
+
+func (l *LinkMap) Get(key string) (url.URL, bool) {
+	l.lock.RLock()
+	defer l.lock.RUnlock()
+	target, exists := l.m[key]
+	return target, exists
 }

@@ -3,15 +3,16 @@ package handler
 import (
 	"fmt"
 	"net/http"
-	"net/url"
 	"strings"
+
+	"github.com/dfryer1193/golinks/internal/links"
 )
 
 type GolinkHandler struct {
-	linkMap map[string]url.URL
+	linkMap *links.LinkMap
 }
 
-func NewHandler(linkMapPtr map[string]url.URL) *GolinkHandler {
+func NewHandler(linkMapPtr *links.LinkMap) *GolinkHandler {
 	return &GolinkHandler{
 		linkMap: linkMapPtr,
 	}
@@ -24,7 +25,7 @@ func (h GolinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 
 	path := strings.TrimPrefix(req.URL.Path, "/")
-	target, exists := h.linkMap[path]
+	target, exists := h.linkMap.Get(path)
 
 	fmt.Printf("Handling request. path={%s} target={%s} target-exists={%t}\n",
 		path,
