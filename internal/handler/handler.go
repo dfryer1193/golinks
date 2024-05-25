@@ -25,6 +25,7 @@ func NewHandler(linkMapPtr *links.LinkMap) *GolinkHandler {
 }
 
 func (h *GolinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	fmt.Printf("Handling request %s %s\n", req.Method, req.URL.Path)
 	switch req.Method {
 	case http.MethodGet:
 		h.handleGet(w, req)
@@ -52,6 +53,7 @@ func (h *GolinkHandler) handlePost(w http.ResponseWriter, req *http.Request) {
 	_, exists := h.linkMap.Get(path)
 
 	if exists {
+		fmt.Println("Path exists, discarding update.")
 		w.WriteHeader(http.StatusForbidden)
 		return
 	}
@@ -61,6 +63,7 @@ func (h *GolinkHandler) handlePost(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
+	fmt.Printf("Received update: key:{%s} target:{%s}\n", path, target)
 
 	targetURL, err := url.Parse(target.Target)
 	if err != nil {
