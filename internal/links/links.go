@@ -192,3 +192,57 @@ func (l *LinkMap) Put(key string, target url.URL) error {
 
 	return nil
 }
+
+func (l *LinkMap) Delete(key string) error {
+	l.mapLock.RLock()
+	if _, exists := l.m[key]; !exists {
+		return nil
+	}
+	l.mapLock.RUnlock()
+
+	l.fileLock.Lock()
+	defer l.fileLock.Unlock()
+	curFile, err := os.OpenFile(l.configPath, os.O_RDONLY, 0600)
+	if err != nil {
+		return err
+	}
+
+	newFile, err := os.OpenFile(l.configPath+"~", os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
+	if err != nil {
+		return err
+	}
+
+	scanner := bufio.NewScanner(curFile)
+	for scanner.Scan() {
+		txt := scanner.Text()
+		if strings.HasPrefix(txt, key+" ") {
+			continue
+		}
+		_, err := newFile.WriteString(txt + "\n")
+		if err != nil {
+			fmt.Println(err)
+			return err
+		}
+	}
+	curFile.Close()
+	newFile.Close()
+
+	err = os.Rename(l.configPath, l.configPath+".bak")
+	if err != nil {
+		return err
+	}
+	err = os.Rename(l.configPath+"~", l.configPath)
+	if err != nil {
+		return err
+	}
+	err = os.Remove(l.configPath + ".bak")
+	if err != nil {
+		return err
+	}
+
+	l.mapLock.Lock()
+	defer l.mapLock.Unlock()
+	delete(l.m, key)
+
+	return nil
+}
