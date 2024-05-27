@@ -96,12 +96,19 @@ func (h *GolinkHandler) handlePost(w http.ResponseWriter, req *http.Request) {
 	}
 	w.WriteHeader(http.StatusOK)
 	w.Header().Add("Content-Type", "application/json")
-	w.Write(responseBytes)
+	_, err = w.Write(responseBytes)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+	}
 }
 
 func (h *GolinkHandler) handleDelete(w http.ResponseWriter, req *http.Request) {
 	path := strings.TrimPrefix(req.URL.Path, "/")
-	h.linkMap.Delete(path)
+	err := h.linkMap.Delete(path)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 
 	w.WriteHeader(http.StatusNoContent)
 }
