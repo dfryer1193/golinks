@@ -176,7 +176,7 @@ func (l *LinkMap) Get(key string) (url.URL, bool) {
 	return target, exists
 }
 
-func (l *LinkMap) Put(key string, target url.URL) error {
+func (l *LinkMap) Put(key string, target *url.URL) error {
 	l.fileLock.Lock()
 	defer l.fileLock.Unlock()
 
@@ -194,12 +194,41 @@ func (l *LinkMap) Put(key string, target url.URL) error {
 }
 
 func (l *LinkMap) Delete(key string) error {
+	// Can skip filesystem-intensive writes if the entry already doesn't exist
 	l.mapLock.RLock()
 	if _, exists := l.m[key]; !exists {
 		return nil
 	}
 	l.mapLock.RUnlock()
 
+	err := l.updateEntry(key, nil)
+	if err != nil {
+		return err
+	}
+
+	err = l.replaceConfigInPlace()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (l *LinkMap) Update(key string, target *url.URL) error {
+	err := l.updateEntry(key, target)
+	if err != nil {
+		return err
+	}
+
+	err = l.replaceConfigInPlace()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (l *LinkMap) updateEntry(key string, target *url.URL) error {
 	l.fileLock.Lock()
 	defer l.fileLock.Unlock()
 	curFile, err := os.OpenFile(l.configPath, os.O_RDONLY, 0600)
@@ -207,7 +236,7 @@ func (l *LinkMap) Delete(key string) error {
 		return err
 	}
 
-	newFile, err := os.OpenFile(l.configPath+"~", os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
+	newFile, err := os.OpenFile(l.getScratchConfigFilepath(), os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
 	if err != nil {
 		return err
 	}
@@ -216,6 +245,12 @@ func (l *LinkMap) Delete(key string) error {
 	for scanner.Scan() {
 		txt := scanner.Text()
 		if strings.HasPrefix(txt, key+" ") {
+			if target == nil {
+				continue
+			}
+			if _, err := newFile.WriteString(key + " " + target.String() + "\n"); err != nil {
+				return err
+			}
 			continue
 		}
 		_, err := newFile.WriteString(txt + "\n")
@@ -227,22 +262,31 @@ func (l *LinkMap) Delete(key string) error {
 	curFile.Close()
 	newFile.Close()
 
-	err = os.Rename(l.configPath, l.configPath+".bak")
-	if err != nil {
-		return err
-	}
-	err = os.Rename(l.configPath+"~", l.configPath)
-	if err != nil {
-		return err
-	}
-	err = os.Remove(l.configPath + ".bak")
-	if err != nil {
-		return err
-	}
+	return nil
+}
 
-	l.mapLock.Lock()
-	defer l.mapLock.Unlock()
-	delete(l.m, key)
+func (l *LinkMap) getScratchConfigFilepath() string {
+	return l.configPath + "~"
+}
 
+func (l *LinkMap) getBackupConfigFilepath() string {
+	return l.configPath + ".bak"
+}
+
+func (l *LinkMap) replaceConfigInPlace() error {
+	l.fileLock.Lock()
+	defer l.fileLock.Unlock()
+	err := os.Rename(l.configPath, l.getBackupConfigFilepath())
+	if err != nil {
+		return err
+	}
+	err = os.Rename(l.getScratchConfigFilepath(), l.configPath)
+	if err != nil {
+		return err
+	}
+	err = os.Remove(l.getBackupConfigFilepath())
+	if err != nil {
+		return err
+	}
 	return nil
 }

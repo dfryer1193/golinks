@@ -73,13 +73,20 @@ func (h *GolinkHandler) handlePost(w http.ResponseWriter, req *http.Request) {
 			Path:   path,
 			Target: oldTarget.String(),
 		}
-	}
 
-	err = h.linkMap.Put(path, *target)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Printf("Encountered an error writing updates to file: %s\n", err)
-		return
+		err := h.linkMap.Update(path, target)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Printf("Encountered an error updating file :%s\n", err)
+			return
+		}
+	} else {
+		err = h.linkMap.Put(path, target)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Printf("Encountered an error writing updates to file: %s\n", err)
+			return
+		}
 	}
 
 	update := targetUpdate{
@@ -93,12 +100,14 @@ func (h *GolinkHandler) handlePost(w http.ResponseWriter, req *http.Request) {
 	responseBytes, err := json.Marshal(update)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
 	w.WriteHeader(http.StatusOK)
 	w.Header().Add("Content-Type", "application/json")
 	_, err = w.Write(responseBytes)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
 }
 
