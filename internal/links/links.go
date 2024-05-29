@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"unicode"
 
 	"github.com/fsnotify/fsnotify"
 )
@@ -17,7 +18,8 @@ import (
 type LinkMap struct {
 	configPath string
 	m          map[string]url.URL
-	lock       sync.RWMutex
+	mapLock    *sync.RWMutex
+	fileLock   *sync.RWMutex
 }
 
 func NewLinkMap(requestedConfig string) *LinkMap {
@@ -30,6 +32,8 @@ func NewLinkMap(requestedConfig string) *LinkMap {
 	linkMap := LinkMap{
 		configPath: path,
 		m:          parseConfig(config),
+		mapLock:    &sync.RWMutex{},
+		fileLock:   &sync.RWMutex{},
 	}
 
 	go linkMap.watchConfig(watcher)
@@ -49,44 +53,50 @@ func getHomeDir() string {
 func findConfig(requestedConfig string) (string, *os.File) {
 	homedir := getHomeDir()
 	configs := []string{
+		requestedConfig,
 		"./links",
 		homedir + "/.config/golinks/links",
 		"/etc/golinks/links",
 	}
 	errs := []error{}
-	if requestedConfig != "" {
-		fpath, err := filepath.Abs(requestedConfig)
-		if err == nil {
-			file, err := os.OpenFile(fpath, os.O_RDONLY, 0644)
-			if err == nil {
-				fmt.Printf("Using config file %s\n", requestedConfig)
-				return requestedConfig, file
-			}
-		}
-		errs = append(errs, err)
-	}
 
 	for _, config := range configs {
-		fpath, err := filepath.Abs(requestedConfig)
-		if err == nil {
-
-			file, err := os.OpenFile(fpath, os.O_RDONLY, 0644)
-			if err == nil {
-				fmt.Printf("Using config file %s\n", config)
-				return config, file
-			}
+		if config == "" {
+			continue
+		}
+		file, err := openFile(config)
+		if err == nil { // Note the deviation from the standard err != nil
+			fmt.Printf("Using config file %s\n", config)
+			return config, file
 		}
 		errs = append(errs, err)
 	}
 
 	log.Fatal("Could not find link config. Errors: ", errs)
-	return "", nil // unreachable code
+	panic(errs)
+}
+
+func openFile(path string) (*os.File, error) {
+	fpath, err := filepath.Abs(path)
+	if err != nil {
+		return nil, err
+	}
+
+	file, err := os.OpenFile(fpath, os.O_RDONLY, 0644)
+	if err != nil {
+		return nil, err
+	}
+
+	return file, nil
 }
 
 func parseLine(line string, lineNum int) (string, *url.URL) {
-	parts := strings.Split(strings.TrimSpace(line), " ")
+	parts := strings.FieldsFunc(strings.TrimSpace(line), func(c rune) bool { return unicode.IsSpace(c) })
 	if len(parts) != 2 {
-		log.Fatalf("Malformed config (L%d): each line must have exactly two entries.", lineNum)
+		if len(parts) == 0 {
+			return "", nil
+		}
+		log.Fatalf("Malformed config (L%d): each non-empty line must have exactly two entries.", lineNum)
 	}
 
 	target, err := url.Parse(parts[1])
@@ -105,8 +115,12 @@ func parseConfig(filePtr *os.File) map[string]url.URL {
 
 	lineNum := 0
 	for scanner.Scan() {
+		txt := scanner.Text()
 		lineNum++
-		key, target := parseLine(scanner.Text(), lineNum)
+		key, target := parseLine(txt, lineNum)
+		if key == "" && target == nil {
+			continue
+		}
 		linkMap[key] = *target
 	}
 
@@ -118,7 +132,7 @@ func (l *LinkMap) watchConfig(watcher *fsnotify.Watcher) {
 	name := filepath.Base(l.configPath)
 	err := watcher.Add(dir)
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println("Failed to add watcher on config dir. Config will not live reload")
 	}
 	for {
 		select {
@@ -129,8 +143,8 @@ func (l *LinkMap) watchConfig(watcher *fsnotify.Watcher) {
 			if err != nil {
 				log.Fatal(err)
 			}
-			if event.Name == name && (event.Has(fsnotify.Write) || event.Has(fsnotify.Create)) {
-				fmt.Println("Updating...")
+			if filepath.Base(event.Name) == name && (event.Has(fsnotify.Write) || event.Has(fsnotify.Create)) {
+				fmt.Println("Config file updated, reloading...")
 				l.update()
 			}
 		case err, ok := <-watcher.Errors:
@@ -149,14 +163,130 @@ func (l *LinkMap) update() {
 	}
 	defer file.Close()
 
-	l.lock.Lock()
-	defer l.lock.Unlock()
+	l.mapLock.Lock()
+	defer l.mapLock.Unlock()
+	fmt.Printf("Reading config file {%s}\n", l.configPath)
 	l.m = parseConfig(file)
 }
 
 func (l *LinkMap) Get(key string) (url.URL, bool) {
-	l.lock.RLock()
-	defer l.lock.RUnlock()
+	l.mapLock.RLock()
+	defer l.mapLock.RUnlock()
 	target, exists := l.m[key]
 	return target, exists
+}
+
+func (l *LinkMap) Put(key string, target *url.URL) error {
+	l.fileLock.Lock()
+	defer l.fileLock.Unlock()
+
+	file, err := os.OpenFile(l.configPath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	if _, err := file.WriteString(key + " " + target.String() + "\n"); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (l *LinkMap) Delete(key string) error {
+	// Can skip filesystem-intensive writes if the entry already doesn't exist
+	l.mapLock.RLock()
+	if _, exists := l.m[key]; !exists {
+		return nil
+	}
+	l.mapLock.RUnlock()
+
+	err := l.updateEntry(key, nil)
+	if err != nil {
+		return err
+	}
+
+	err = l.replaceConfigInPlace()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (l *LinkMap) Update(key string, target *url.URL) error {
+	err := l.updateEntry(key, target)
+	if err != nil {
+		return err
+	}
+
+	err = l.replaceConfigInPlace()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (l *LinkMap) updateEntry(key string, target *url.URL) error {
+	l.fileLock.Lock()
+	defer l.fileLock.Unlock()
+	curFile, err := os.OpenFile(l.configPath, os.O_RDONLY, 0600)
+	if err != nil {
+		return err
+	}
+
+	newFile, err := os.OpenFile(l.getScratchConfigFilepath(), os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
+	if err != nil {
+		return err
+	}
+
+	scanner := bufio.NewScanner(curFile)
+	for scanner.Scan() {
+		txt := scanner.Text()
+		if strings.HasPrefix(txt, key+" ") {
+			if target == nil {
+				continue
+			}
+			if _, err := newFile.WriteString(key + " " + target.String() + "\n"); err != nil {
+				return err
+			}
+			continue
+		}
+		_, err := newFile.WriteString(txt + "\n")
+		if err != nil {
+			fmt.Println(err)
+			return err
+		}
+	}
+	curFile.Close()
+	newFile.Close()
+
+	return nil
+}
+
+func (l *LinkMap) getScratchConfigFilepath() string {
+	return l.configPath + "~"
+}
+
+func (l *LinkMap) getBackupConfigFilepath() string {
+	return l.configPath + ".bak"
+}
+
+func (l *LinkMap) replaceConfigInPlace() error {
+	l.fileLock.Lock()
+	defer l.fileLock.Unlock()
+	err := os.Rename(l.configPath, l.getBackupConfigFilepath())
+	if err != nil {
+		return err
+	}
+	err = os.Rename(l.getScratchConfigFilepath(), l.configPath)
+	if err != nil {
+		return err
+	}
+	err = os.Remove(l.getBackupConfigFilepath())
+	if err != nil {
+		return err
+	}
+	return nil
 }
