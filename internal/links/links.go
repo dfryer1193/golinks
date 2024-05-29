@@ -6,7 +6,6 @@ import (
 	"log"
 	"net/url"
 	"os"
-	"os/user"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -41,21 +40,10 @@ func NewLinkMap(requestedConfig string) *LinkMap {
 	return &linkMap
 }
 
-func getHomeDir() string {
-	user, err := user.Current()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	return user.HomeDir
-}
-
 func findConfig(requestedConfig string) (string, *os.File) {
-	homedir := getHomeDir()
 	configs := []string{
 		requestedConfig,
 		"./links",
-		homedir + "/.config/golinks/links",
 		"/etc/golinks/links",
 	}
 	errs := []error{}
