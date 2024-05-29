@@ -54,7 +54,7 @@ func main() {
 	fmt.Printf("Starting http server:\nListening on port :%d\n", port)
 
 	redirector := handler.NewHandler(links.NewLinkMap(configFile))
-	if err := http.ListenAndServe(fmt.Sprintf(":%d", port), *redirector); err != nil {
+	if err := http.ListenAndServe(fmt.Sprintf(":%d", port), redirector); err != nil {
 		log.Fatal(err)
 	}
 }
