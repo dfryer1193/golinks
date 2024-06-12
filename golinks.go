@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 
@@ -51,7 +52,7 @@ func main() {
 
 	flag.Parse()
 
-	fmt.Printf("Starting http server:\nListening on port :%d\n", port)
+	slog.Info("Starting http server", "port", port)
 
 	redirector := handler.NewHandler(links.NewLinkMap(configFile))
 	if err := http.ListenAndServe(fmt.Sprintf(":%d", port), redirector); err != nil {

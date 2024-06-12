@@ -2,7 +2,7 @@ package handler
 
 import (
 	"encoding/json"
-	"fmt"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
@@ -35,7 +35,7 @@ func NewHandler(linkMapPtr *links.LinkMap) *GolinkHandler {
 }
 
 func (h *GolinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	fmt.Printf("Handling request %s %s\n", req.Method, req.URL.Path)
+	slog.Info(req.Method + " " + req.URL.Path)
 	switch req.Method {
 	case http.MethodGet:
 		h.handleGet(w, req)
@@ -77,15 +77,15 @@ func (h *GolinkHandler) handlePost(w http.ResponseWriter, req *http.Request) {
 		err := h.linkMap.Update(path, target)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			fmt.Printf("Encountered an error updating file :%s\n", err)
-			return
+			slog.Error("Encountered an error writing config", "error", err)
+			panic(1)
 		}
 	} else {
 		err = h.linkMap.Put(path, target)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			fmt.Printf("Encountered an error writing updates to file: %s\n", err)
-			return
+			slog.Error("Encountered an error writing config", "error", err)
+			panic(1)
 		}
 	}
 
