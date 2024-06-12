@@ -3,7 +3,6 @@ package links
 import (
 	"bufio"
 	"fmt"
-	"log"
 	"log/slog"
 	"net/url"
 	"os"
@@ -27,7 +26,7 @@ func NewLinkMap(requestedConfig string) *LinkMap {
 	path, config := findConfig(requestedConfig)
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("", "error", err)
 	}
 
 	linkMap := LinkMap{
@@ -45,7 +44,7 @@ func NewLinkMap(requestedConfig string) *LinkMap {
 func getHomeDir() string {
 	user, err := user.Current()
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("", "error", err)
 	}
 
 	return user.HomeDir
@@ -142,9 +141,7 @@ func (l *LinkMap) watchConfig(watcher *fsnotify.Watcher) {
 			if !ok {
 				return
 			}
-			if err != nil {
-				log.Fatal(err)
-			}
+			slog.Debug("File watch event received!")
 			if filepath.Base(event.Name) == name && (event.Has(fsnotify.Write) || event.Has(fsnotify.Create)) {
 				slog.Debug("Config file updated, reloading...")
 				l.update()
@@ -152,6 +149,9 @@ func (l *LinkMap) watchConfig(watcher *fsnotify.Watcher) {
 		case err, ok := <-watcher.Errors:
 			if !ok {
 				return
+			}
+			if err != nil {
+				slog.Error("File watch error received", "error", err)
 			}
 			fmt.Println(err)
 		}
@@ -193,6 +193,10 @@ func (l *LinkMap) Put(key string, target *url.URL) error {
 		return err
 	}
 
+	l.mapLock.Lock()
+	defer l.mapLock.Unlock()
+	l.m[key] = *target
+
 	return nil
 }
 
@@ -213,6 +217,10 @@ func (l *LinkMap) Delete(key string) error {
 	if err != nil {
 		return err
 	}
+
+	l.mapLock.Lock()
+	defer l.mapLock.Unlock()
+	delete(l.m, key)
 
 	return nil
 }
@@ -264,6 +272,10 @@ func (l *LinkMap) updateEntry(key string, target *url.URL) error {
 	}
 	curFile.Close()
 	newFile.Close()
+
+	l.mapLock.Lock()
+	defer l.mapLock.Unlock()
+	l.m[key] = *target
 
 	return nil
 }
