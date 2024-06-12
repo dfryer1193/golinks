@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"log"
+	"log/slog"
 	"net/url"
 	"os"
 	"os/user"
@@ -66,13 +67,13 @@ func findConfig(requestedConfig string) (string, *os.File) {
 		}
 		file, err := openFile(config)
 		if err == nil { // Note the deviation from the standard err != nil
-			fmt.Printf("Using config file %s\n", config)
+			slog.Info("Using config file " + config)
 			return config, file
 		}
 		errs = append(errs, err)
 	}
 
-	log.Fatal("Could not find link config. Errors: ", errs)
+	slog.Error("Could not find link config", "errors", errs)
 	panic(errs)
 }
 
@@ -96,12 +97,13 @@ func parseLine(line string, lineNum int) (string, *url.URL) {
 		if len(parts) == 0 {
 			return "", nil
 		}
-		log.Fatalf("Malformed config (L%d): each non-empty line must have exactly two entries.", lineNum)
+		slog.Error("Malformed config. Each non-empty line must have exactly two entries.", "line", lineNum)
+		panic(1)
 	}
 
 	target, err := url.Parse(parts[1])
 	if err != nil {
-		log.Fatalf("Malformed config (L%d): invalid URL \"%s\"", lineNum, parts[1])
+		slog.Error("Malformed config. Invalid url.", "line", lineNum, "url", parts[1])
 	}
 
 	return parts[0], target
@@ -132,7 +134,7 @@ func (l *LinkMap) watchConfig(watcher *fsnotify.Watcher) {
 	name := filepath.Base(l.configPath)
 	err := watcher.Add(dir)
 	if err != nil {
-		fmt.Println("Failed to add watcher on config dir. Config will not live reload")
+		slog.Error("Failed to add watcher on config dir. Config will not live reload", "error", err)
 	}
 	for {
 		select {
@@ -144,7 +146,7 @@ func (l *LinkMap) watchConfig(watcher *fsnotify.Watcher) {
 				log.Fatal(err)
 			}
 			if filepath.Base(event.Name) == name && (event.Has(fsnotify.Write) || event.Has(fsnotify.Create)) {
-				fmt.Println("Config file updated, reloading...")
+				slog.Debug("Config file updated, reloading...")
 				l.update()
 			}
 		case err, ok := <-watcher.Errors:
@@ -159,13 +161,14 @@ func (l *LinkMap) watchConfig(watcher *fsnotify.Watcher) {
 func (l *LinkMap) update() {
 	file, err := os.OpenFile(l.configPath, os.O_RDONLY, 0644)
 	if err != nil {
-		log.Fatalf("Could not open config %s for reading.", l.configPath)
+		slog.Error("Cound not open config for reading", "file", l.configPath)
+		panic(1)
 	}
 	defer file.Close()
 
 	l.mapLock.Lock()
 	defer l.mapLock.Unlock()
-	fmt.Printf("Reading config file {%s}\n", l.configPath)
+	slog.Debug("Reading config file", "file", l.configPath)
 	l.m = parseConfig(file)
 }
 
