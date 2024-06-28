@@ -1,13 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
-	<head>
-		<meta charset="UTF-8">
-		<meta name="viewport" content="width=device-width, initial-scale=1.0">
-		<title>Go/Links</title>
-		<link rel="stylesheet" href="styles.css">
-	</head>
-	<body>
-		<div class="container">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Go/Links</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <div class="container">
       <pre class="ascii-art">
 
  ██████╗  ██████╗     ██╗██╗     ██╗███╗   ██╗██╗  ██╗███████╗
@@ -16,45 +16,44 @@
 ██║   ██║██║   ██║ ██╔╝  ██║     ██║██║╚██╗██║██╔═██╗ ╚════██║
 ╚██████╔╝╚██████╔╝██╔╝   ███████╗██║██║ ╚████║██║  ██╗███████║
  ╚═════╝  ╚═════╝ ╚═╝    ╚══════╝╚═╝╚═╝  ╚═══╝╚═╝  ╚═╝╚══════╝
-      
-      </pre>
-			<div class="table-container">
-				<table>
-					<thead>
-						<tr>
-							<th>Path</th>
-							<th>URL</th>
-						</tr>
-					</thead>
-					<tbody id="redirectsTableBody">
-						<!-- Table rows will be dynamically populated here -->
-					</tbody>
-				</table>
-			</div>
-		</div>
 
-		<script>
-			// Fetch redirects data from server
-			fetch('/redirects')
-				.then(response => response.json())
-				.then(data => {
-					const redirectsTableBody = document.getElementById('redirectsTableBody');
-					for (const path in data) {
-						if (data.hasOwnProperty(path)) {
-							const url = data[path];
-							const tableRow = document.createElement('tr');
-							tableRow.innerHTML = `
-							<td>${path}</td>
-							<td><a href="${url}" target="_blank">${url}</a></td>
-						`;
-							redirectsTableBody.appendChild(tableRow);
-						}
-					}
-				})
-				.catch(error => {
-					console.error('Error fetching redirects:', error);
-				});
-		</script>
-	</body>
+      </pre>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Path</th>
+              <th>URL</th>
+            </tr>
+          </thead>
+          <tbody id="redirectsTableBody">
+            <!-- Table rows will be dynamically populated here -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <script>
+      fetch('/redirects')
+        .then(response => response.json())
+        .then(data => {
+          const redirectsTableBody = document.getElementById('redirectsTableBody');
+          for (const path in data) {
+            if (data.hasOwnProperty(path)) {
+              const url = data[path];
+              const tableRow = document.createElement('tr');
+              tableRow.innerHTML = `
+              <td>${path}</td>
+              <td><a href="${url}" target="_blank">${url}</a></td>
+            `;
+              redirectsTableBody.appendChild(tableRow);
+            }
+          }
+        })
+        .catch(error => {
+          console.error('Error fetching redirects:', error);
+        });
+    </script>
+  </body>
 </html>
 

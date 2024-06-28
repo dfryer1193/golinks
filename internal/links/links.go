@@ -200,8 +200,6 @@ func (l *LinkMap) Put(key string, target *url.URL) error {
 	}
 	defer file.Close()
 
-	slog.Info("OOPS!", "key", key, "target", target)
-
 	if _, err := file.WriteString(key + " " + target.String() + "\n"); err != nil {
 		return err
 	}
