@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"embed"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -9,6 +10,14 @@ import (
 
 	"github.com/dfryer1193/golinks/internal/links"
 )
+
+//go:embed static/*
+var content embed.FS
+
+const embedDir = "static/"
+const list = embedDir + "index.html"
+const css = embedDir + "styles.css"
+const newLink = embedDir + "new.html"
 
 type GolinkHandler struct {
 	linkMap *links.LinkMap
@@ -50,6 +59,14 @@ func (h *GolinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 func (h *GolinkHandler) handleGet(w http.ResponseWriter, req *http.Request) {
 	path := strings.TrimPrefix(req.URL.Path, "/")
+
+	staticPathHandler := h.getStaticPathMap()[path]
+
+	if h.getStaticPathMap()[path] != nil {
+		staticPathHandler(w, req)
+		return
+	}
+
 	target, exists := h.linkMap.Get(path)
 
 	if exists {
@@ -57,7 +74,68 @@ func (h *GolinkHandler) handleGet(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	http.NotFound(w, req)
+	h.serveNewForm(w)
+}
+
+func (h *GolinkHandler) serveList(w http.ResponseWriter, req *http.Request) {
+	serveEmbeddedHtml(list, w)
+}
+
+func (h *GolinkHandler) serveStyles(w http.ResponseWriter, req *http.Request) {
+	cssBytes, err := content.ReadFile(css)
+	if err != nil {
+		http.Error(w, "Error reading styles.css", http.StatusInternalServerError)
+		slog.Error("Error reading embedded styles.css", "error", err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/css")
+
+	_, err = w.Write(cssBytes)
+	if err != nil {
+		http.Error(w, "Error writing response", http.StatusInternalServerError)
+		slog.Error("Error writing css response", "error", err)
+	}
+}
+
+func (h *GolinkHandler) serveNewForm(w http.ResponseWriter) {
+	serveEmbeddedHtml(newLink, w)
+}
+
+func serveEmbeddedHtml(filename string, w http.ResponseWriter) {
+	htmlBytes, err := content.ReadFile(filename)
+	if err != nil {
+		http.Error(w, "Error reading index.html", http.StatusInternalServerError)
+		slog.Error("Error reading embedded index.html", "error", err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/html")
+
+	_, err = w.Write(htmlBytes)
+	if err != nil {
+		http.Error(w, "Error writing response", http.StatusInternalServerError)
+		slog.Error("Error writing html response", "error", err)
+	}
+}
+
+func (h *GolinkHandler) getAllRedirects(w http.ResponseWriter, req *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	err := json.NewEncoder(w).Encode(h.linkMap.GetAllAsString())
+	if err != nil {
+		http.Error(w, "Error encoding JSON", http.StatusInternalServerError)
+		slog.Error("Error encoding link map to JSON", "error", err)
+		return
+	}
+}
+
+func (h *GolinkHandler) getStaticPathMap() map[string]func(http.ResponseWriter, *http.Request) {
+	return map[string]func(w http.ResponseWriter, req *http.Request){
+		"":            h.serveList,
+		"favicon.ico": func(w http.ResponseWriter, req *http.Request) {}, // ignore favicon requests
+		"redirects":   h.getAllRedirects,
+		"styles.css":  h.serveStyles,
+	}
 }
 
 func (h *GolinkHandler) handlePost(w http.ResponseWriter, req *http.Request) {

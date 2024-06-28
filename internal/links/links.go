@@ -179,6 +179,17 @@ func (l *LinkMap) Get(key string) (url.URL, bool) {
 	return target, exists
 }
 
+func (l *LinkMap) GetAllAsString() map[string]string {
+	l.mapLock.RLock()
+	defer l.mapLock.RUnlock()
+
+	stringified := make(map[string]string)
+	for key, u := range l.m {
+		stringified[key] = u.String()
+	}
+	return stringified
+}
+
 func (l *LinkMap) Put(key string, target *url.URL) error {
 	l.fileLock.Lock()
 	defer l.fileLock.Unlock()
@@ -188,6 +199,8 @@ func (l *LinkMap) Put(key string, target *url.URL) error {
 		return err
 	}
 	defer file.Close()
+
+	slog.Info("OOPS!", "key", key, "target", target)
 
 	if _, err := file.WriteString(key + " " + target.String() + "\n"); err != nil {
 		return err

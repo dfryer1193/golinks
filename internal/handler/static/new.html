@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create New Shortcut</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+      <pre class="ascii-art">
+
+ ██████╗  ██████╗     ██╗██╗     ██╗███╗   ██╗██╗  ██╗███████╗
+██╔════╝ ██╔═══██╗   ██╔╝██║     ██║████╗  ██║██║ ██╔╝██╔════╝
+██║  ███╗██║   ██║  ██╔╝ ██║     ██║██╔██╗ ██║█████╔╝ ███████╗
+██║   ██║██║   ██║ ██╔╝  ██║     ██║██║╚██╗██║██╔═██╗ ╚════██║
+╚██████╔╝╚██████╔╝██╔╝   ███████╗██║██║ ╚████║██║  ██╗███████║
+ ╚═════╝  ╚═════╝ ╚═╝    ╚══════╝╚═╝╚═╝  ╚═══╝╚═╝  ╚═╝╚══════╝
+      
+      </pre>
+        <form id="createForm" action="/create" method="POST">
+            <div class="form-group">
+                <label for="path">Path:</label>
+                <input type="text" id="path" name="path" required>
+            </div>
+            <div class="form-group">
+                <label for="url">URL:</label>
+                <input type="url" id="url" name="url" required>
+            </div>
+            <button type="submit">Create Shortcut</button>
+        </form>
+    </div>
+
+    <script>
+        // JavaScript to pre-fill the path field
+        document.addEventListener('DOMContentLoaded', function() {
+            // Parse query parameter to get the path to pre-fill
+            const urlParams = new URLSearchParams(window.location.search);
+            const preFilledPath = urlParams.get('path');
+
+            // Set the value of the path input field
+            const pathInput = document.getElementById('path');
+            if (preFilledPath) {
+                pathInput.value = preFilledPath;
+            }
+        });
+		document.addEventListener('DOMContentLoaded', function() {
+			const createForm = document.getElementById('createForm');
+
+            createForm.addEventListener('submit', function(event) {
+                event.preventDefault();
+
+                // Get form values
+                const path = document.getElementById('path').value.trim();
+                const url = document.getElementById('url').value.trim();
+
+				console.log("Path: " + path)
+				console.log("URL: " + url)
+
+                // Basic validation
+                if (path === '' || url === '') {
+                    alert('Path and URL cannot be empty');
+                    return;
+                }
+
+                // Validate URL format
+                const urlRegex = /^(http:\/\/www\.|https:\/\/www\.|http:\/\/|https:\/\/)?[a-z0-9]+([\-\.]{1}[a-z0-9]+)*\.[a-z]{2,5}(:[0-9]{1,5})?(\/.*)?$/;
+                if (!urlRegex.test(url)) {
+                    alert('Invalid URL format');
+                    return;
+                }
+
+				const data = {
+					target: url
+				};
+				fetch(path, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    alert('Shortcut created successfully');
+                    // Optionally, redirect or update UI as needed
+                    window.location.href = '/';
+                })
+				.catch(error => {
+                    console.error('Error:', error);
+                    alert('Failed to create shortcut');
+                });
+            });
+		})
+    </script>
+</body>
+</html>
