@@ -48,6 +48,18 @@ table td {
     border-top: 1px solid #666;
 }
 
+.delete-button {
+  visibility: hidden;
+}
+
+.action-column {
+  width: 100px;
+}
+
+tr:hover .delete-button {
+  visibility: visible;
+}
+
 a {
     color: #4af;
     text-decoration: none;

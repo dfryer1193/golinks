@@ -24,6 +24,7 @@
             <tr>
               <th>Path</th>
               <th>URL</th>
+              <th class="action-column"/>
             </tr>
           </thead>
           <tbody id="redirectsTableBody">
@@ -34,10 +35,10 @@
     </div>
 
     <script>
+      const redirectsTableBody = document.getElementById('redirectsTableBody');
       fetch('/redirects')
         .then(response => response.json())
         .then(data => {
-          const redirectsTableBody = document.getElementById('redirectsTableBody');
           for (const path in data) {
             if (data.hasOwnProperty(path)) {
               const url = data[path];
@@ -45,6 +46,7 @@
               tableRow.innerHTML = `
               <td>${path}</td>
               <td><a href="${url}" target="_blank">${url}</a></td>
+              <td><button class="delete-button" data-id="${path}">Delete</button></td>
             `;
               redirectsTableBody.appendChild(tableRow);
             }
@@ -53,6 +55,20 @@
         .catch(error => {
           console.error('Error fetching redirects:', error);
         });
+
+      document.addEventListener('DOMContentLoaded', function() {
+        redirectsTableBody.addEventListener('click', function(event) {
+          if (event.target.classList.contains('delete-button')) {
+            const id = event.target.getAttribute('data-id');
+            console.log(`Deleting row with ID ${id}`);
+            fetch(`/${id}`, {
+              method: 'DELETE',
+            }).catch(error => {
+              console.error('Error deleting row:', error);
+            });
+          }
+        });
+      });
     </script>
   </body>
 </html>
