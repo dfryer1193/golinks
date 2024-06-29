@@ -46,7 +46,10 @@
               tableRow.innerHTML = `
               <td>${path}</td>
               <td><a href="${url}" target="_blank">${url}</a></td>
-              <td><button class="delete-button" data-id="${path}">Delete</button></td>
+              <td>
+                <button class="delete-button" data-id="${path}">Delete</button>
+                <button class="update-button" data-id="${path}">Update</button>
+              </td>
             `;
               redirectsTableBody.appendChild(tableRow);
             }
@@ -70,6 +73,11 @@
             .catch(error => {
               console.error('Error deleting row:', error);
             });
+          }
+
+          if (event.target.classList.contains('update-button')) {
+            const id = event.target.getAttribute('data-id');
+            window.location.href = `/update?path=${id}`;
           }
         });
       });

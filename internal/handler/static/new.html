@@ -33,10 +33,14 @@
 
     <script>
       document.addEventListener('DOMContentLoaded', function() {
+        const queryParams = new URLSearchParams(window.location.search);
+        const preFilledPathQueryParam = queryParams.get('path');
         const preFilledPath = window.location.pathname;
 
         const pathInput = document.getElementById('path');
-        if (preFilledPath) {
+        if (preFilledPathQueryParam) {
+          pathInput.value = preFilledPathQueryParam
+        } else if (preFilledPath) {
           pathInput.value = preFilledPath;
         }
 

@@ -52,11 +52,15 @@ table td {
   visibility: hidden;
 }
 
-.action-column {
-  width: 100px;
+tr:hover .delete-button {
+  visibility: visible;
 }
 
-tr:hover .delete-button {
+.update-button {
+  visibility: hidden;
+}
+
+tr:hover .update-button {
   visibility: visible;
 }
 
@@ -86,7 +90,7 @@ label {
 
 button {
   padding: 10px 10px;
-  background-color: #333;
+  background-color: #555;
   color: #fff;
   border: none;
   cursor: pointer;
