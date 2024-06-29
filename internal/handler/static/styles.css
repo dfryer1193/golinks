@@ -69,6 +69,34 @@ a:hover {
     text-decoration: underline;
 }
 
+input[type="text"], input[type="url"] {
+  width: 300px;
+  padding: 8px;
+  box-sizing: border-box;
+}
+
+.form-group {
+  margin-bottom: 15px;
+}
+
+label {
+  display: block;
+  margin-bottom: 5px;
+}
+
+button {
+  padding: 10px 10px;
+  background-color: #333;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+}
+
+button:hover {
+  background-color: #fff;
+  color: #333
+}
+
 @media screen and (max-width: 768px) {
 	.table-container {
 		margin-top: 10px;
