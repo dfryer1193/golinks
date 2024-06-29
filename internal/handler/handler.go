@@ -74,7 +74,7 @@ func (h *GolinkHandler) handleGet(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	h.serveNewForm(w)
+	h.serveNewForm(w, req)
 }
 
 func (h *GolinkHandler) serveList(w http.ResponseWriter, req *http.Request) {
@@ -98,7 +98,7 @@ func (h *GolinkHandler) serveStyles(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func (h *GolinkHandler) serveNewForm(w http.ResponseWriter) {
+func (h *GolinkHandler) serveNewForm(w http.ResponseWriter, req *http.Request) {
 	serveEmbeddedHtml(newLink, w)
 }
 
@@ -135,6 +135,7 @@ func (h *GolinkHandler) getStaticPathMap() map[string]func(http.ResponseWriter, 
 		"favicon.ico": func(w http.ResponseWriter, req *http.Request) {}, // ignore favicon requests
 		"redirects":   h.getAllRedirects,
 		"styles.css":  h.serveStyles,
+		"update":      h.serveNewForm,
 	}
 }
 
