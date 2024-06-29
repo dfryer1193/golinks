@@ -238,7 +238,6 @@ func (l *LinkMap) Update(key string, target *url.URL) error {
 
 func (l *LinkMap) updateEntry(key string, target *url.URL) error {
 	l.fileLock.Lock()
-	defer l.fileLock.Unlock()
 	curFile, err := os.OpenFile(l.configPath, os.O_RDONLY, 0600)
 	if err != nil {
 		return err
@@ -269,6 +268,7 @@ func (l *LinkMap) updateEntry(key string, target *url.URL) error {
 	}
 	curFile.Close()
 	newFile.Close()
+	l.fileLock.Unlock()
 
 	l.mapLock.Lock()
 	defer l.mapLock.Unlock()
