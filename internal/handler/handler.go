@@ -146,6 +146,11 @@ func (h *GolinkHandler) handlePost(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 	}
 
+	if _, exists := h.getStaticPathMap()[path]; exists {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
 	oldTarget, exists := h.linkMap.Get(path)
 	if exists {
 		oldPathAndTarget = &pathAndTarget{
