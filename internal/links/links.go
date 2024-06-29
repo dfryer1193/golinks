@@ -224,25 +224,11 @@ func (l *LinkMap) Delete(key string) error {
 		return err
 	}
 
-	err = l.replaceConfigInPlace()
-	if err != nil {
-		return err
-	}
-
-	l.mapLock.Lock()
-	defer l.mapLock.Unlock()
-	delete(l.m, key)
-
 	return nil
 }
 
 func (l *LinkMap) Update(key string, target *url.URL) error {
 	err := l.updateEntry(key, target)
-	if err != nil {
-		return err
-	}
-
-	err = l.replaceConfigInPlace()
 	if err != nil {
 		return err
 	}
@@ -286,7 +272,16 @@ func (l *LinkMap) updateEntry(key string, target *url.URL) error {
 
 	l.mapLock.Lock()
 	defer l.mapLock.Unlock()
-	l.m[key] = *target
+	if target == nil {
+		delete(l.m, key)
+	} else {
+		l.m[key] = *target
+	}
+
+	err = l.replaceConfigInPlace()
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
