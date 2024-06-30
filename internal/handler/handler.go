@@ -19,6 +19,7 @@ const list = embedDir + "index.html"
 const css = embedDir + "styles.css"
 const newLink = embedDir + "new.html"
 
+// GolinkHandler handles all incoming/outgoing http requests for go links.
 type GolinkHandler struct {
 	linkMap *links.LinkMap
 }
@@ -37,12 +38,14 @@ type targetUpdate struct {
 	New *pathAndTarget `json:"new"`
 }
 
+// NewHandler returns a reference to a new instance of a GolinkHandler
 func NewHandler(linkMapPtr *links.LinkMap) *GolinkHandler {
 	return &GolinkHandler{
 		linkMap: linkMapPtr,
 	}
 }
 
+// ServeHTTP handles the base logic of handling http requests for the GolinkHandler
 func (h *GolinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	slog.Info(req.Method + " " + req.URL.Path)
 	switch req.Method {
@@ -100,23 +103,6 @@ func (h *GolinkHandler) serveStyles(w http.ResponseWriter, req *http.Request) {
 
 func (h *GolinkHandler) serveNewForm(w http.ResponseWriter, req *http.Request) {
 	serveEmbeddedHtml(newLink, w)
-}
-
-func serveEmbeddedHtml(filename string, w http.ResponseWriter) {
-	htmlBytes, err := content.ReadFile(filename)
-	if err != nil {
-		http.Error(w, "Error reading index.html", http.StatusInternalServerError)
-		slog.Error("Error reading embedded index.html", "error", err)
-		return
-	}
-
-	w.Header().Set("Content-Type", "text/html")
-
-	_, err = w.Write(htmlBytes)
-	if err != nil {
-		http.Error(w, "Error writing response", http.StatusInternalServerError)
-		slog.Error("Error writing html response", "error", err)
-	}
 }
 
 func (h *GolinkHandler) getAllRedirects(w http.ResponseWriter, req *http.Request) {
@@ -229,4 +215,21 @@ func getBody(req *http.Request) (*linkTarget, error) {
 	}
 
 	return &body, nil
+}
+
+func serveEmbeddedHtml(filename string, w http.ResponseWriter) {
+	htmlBytes, err := content.ReadFile(filename)
+	if err != nil {
+		http.Error(w, "Error reading index.html", http.StatusInternalServerError)
+		slog.Error("Error reading embedded index.html", "error", err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/html")
+
+	_, err = w.Write(htmlBytes)
+	if err != nil {
+		http.Error(w, "Error writing response", http.StatusInternalServerError)
+		slog.Error("Error writing html response", "error", err)
+	}
 }
