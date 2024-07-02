@@ -15,6 +15,8 @@ import (
 	"github.com/fsnotify/fsnotify"
 )
 
+// LinkMap houses the map of redirects, and keeps track of the backing file for
+// maintaining the map across restarts. It also handles thread safety.
 type LinkMap struct {
 	configPath string
 	m          map[string]url.URL
@@ -22,6 +24,10 @@ type LinkMap struct {
 	fileLock   *sync.RWMutex
 }
 
+// NewLinkMap generates a new LinkMap object, with the requested config if it
+// exists. If the requested config does not exist, it falls back to the default
+// locations. If the default locations do not exist, the program will exit with
+// an error.
 func NewLinkMap(requestedConfig string) *LinkMap {
 	path, config := findConfig(requestedConfig)
 	watcher, err := fsnotify.NewWatcher()
@@ -42,12 +48,12 @@ func NewLinkMap(requestedConfig string) *LinkMap {
 }
 
 func getHomeDir() string {
-	user, err := user.Current()
+	currentUser, err := user.Current()
 	if err != nil {
 		slog.Error("", "error", err)
 	}
 
-	return user.HomeDir
+	return currentUser.HomeDir
 }
 
 func findConfig(requestedConfig string) (string, *os.File) {
@@ -172,6 +178,7 @@ func (l *LinkMap) update() {
 	l.m = parseConfig(file)
 }
 
+// Get returns the url and state of existence for a single key.
 func (l *LinkMap) Get(key string) (url.URL, bool) {
 	l.mapLock.RLock()
 	defer l.mapLock.RUnlock()
@@ -179,6 +186,23 @@ func (l *LinkMap) Get(key string) (url.URL, bool) {
 	return target, exists
 }
 
+// GetAllAsString returns a map containing all of the entries from the current
+// LinkMap object, where each of the URLs have been fully stringified for use in
+// an FE-friendly json object
+func (l *LinkMap) GetAllAsString() map[string]string {
+	l.mapLock.RLock()
+	defer l.mapLock.RUnlock()
+
+	stringified := make(map[string]string)
+	for key, u := range l.m {
+		stringified[key] = u.String()
+	}
+	return stringified
+}
+
+// Put appends a new entry to the link map. If the entry already exists, it will
+// be duplicated in the backing file, and the value in the live map will be
+// replaced.
 func (l *LinkMap) Put(key string, target *url.URL) error {
 	l.fileLock.Lock()
 	defer l.fileLock.Unlock()
@@ -200,6 +224,8 @@ func (l *LinkMap) Put(key string, target *url.URL) error {
 	return nil
 }
 
+// Delete removes an entry from the link map. If the key is not present in the
+// map, this is a no-op
 func (l *LinkMap) Delete(key string) error {
 	// Can skip filesystem-intensive writes if the entry already doesn't exist
 	l.mapLock.RLock()
@@ -213,25 +239,13 @@ func (l *LinkMap) Delete(key string) error {
 		return err
 	}
 
-	err = l.replaceConfigInPlace()
-	if err != nil {
-		return err
-	}
-
-	l.mapLock.Lock()
-	defer l.mapLock.Unlock()
-	delete(l.m, key)
-
 	return nil
 }
 
+// Update updates an existing entry in the link map. This should only be used to
+// update existing entries, as Put is much more efficient for additions.
 func (l *LinkMap) Update(key string, target *url.URL) error {
 	err := l.updateEntry(key, target)
-	if err != nil {
-		return err
-	}
-
-	err = l.replaceConfigInPlace()
 	if err != nil {
 		return err
 	}
@@ -241,7 +255,6 @@ func (l *LinkMap) Update(key string, target *url.URL) error {
 
 func (l *LinkMap) updateEntry(key string, target *url.URL) error {
 	l.fileLock.Lock()
-	defer l.fileLock.Unlock()
 	curFile, err := os.OpenFile(l.configPath, os.O_RDONLY, 0600)
 	if err != nil {
 		return err
@@ -272,10 +285,20 @@ func (l *LinkMap) updateEntry(key string, target *url.URL) error {
 	}
 	curFile.Close()
 	newFile.Close()
+	l.fileLock.Unlock()
 
 	l.mapLock.Lock()
 	defer l.mapLock.Unlock()
-	l.m[key] = *target
+	if target == nil {
+		delete(l.m, key)
+	} else {
+		l.m[key] = *target
+	}
+
+	err = l.replaceConfigInPlace()
+	if err != nil {
+		return err
+	}
 
 	return nil
 }

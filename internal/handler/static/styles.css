@@ -1,0 +1,108 @@
+body {
+  background-color: #333;
+  color: #fff;
+  font-family: 'Source Code Pro', monospace;
+  text-align: center;
+  padding: 10px;
+  margin: 0;
+}
+
+.ascii-art {
+  color: #fff;
+  font-size: 18px;
+  white-space: pre-wrap;
+}
+
+.container {
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 10px;
+  box-sizing: border-box;
+}
+
+.table-container {
+  margin-top: 20px;
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  max-width: 100%;
+  border-collapse: collapse;
+  background-color: #444;
+  color: #fff;
+  margin: 0 auto;
+}
+
+table th, table td {
+  padding: 10px;
+  text-align: left;
+}
+
+table th {
+  background-color: #222;
+}
+
+table td {
+  border-top: 1px solid #666;
+}
+
+.delete-button {
+  visibility: hidden;
+}
+
+tr:hover .delete-button {
+  visibility: visible;
+}
+
+.update-button {
+  visibility: hidden;
+}
+
+tr:hover .update-button {
+  visibility: visible;
+}
+
+a {
+  color: #4af;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+input[type="text"], input[type="url"] {
+  width: 300px;
+  padding: 8px;
+  box-sizing: border-box;
+}
+
+.form-group {
+  margin-bottom: 15px;
+}
+
+label {
+  display: block;
+  margin-bottom: 5px;
+}
+
+button {
+  padding: 10px 10px;
+  background-color: #555;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+}
+
+button:hover {
+  background-color: #fff;
+  color: #333
+}
+
+@media screen and (max-width: 768px) {
+  .table-container {
+    margin-top: 10px;
+  }
+}
