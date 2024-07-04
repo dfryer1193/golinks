@@ -54,7 +54,7 @@ func main() {
 
 	slog.Info("Starting http server", "port", port)
 
-	redirector := handler.NewHandler(links.NewLinkMap(configFile))
+	redirector := handler.NewGolinkHandler(links.NewLinkMap(configFile))
 	if err := http.ListenAndServe(fmt.Sprintf(":%d", port), redirector); err != nil {
 		log.Fatal(err)
 	}
