@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Create New Shortcut</title>
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="static/styles.css">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@400;700&display=swap">
   </head>
   <body>
@@ -33,62 +33,66 @@
     </div>
 
     <script>
-      document.addEventListener('DOMContentLoaded', function() {
-        const queryParams = new URLSearchParams(window.location.search);
-        const preFilledPathQueryParam = queryParams.get('path');
-        const preFilledPath = window.location.pathname;
+        const apiPath = "/api/v1"
+        document.addEventListener('DOMContentLoaded', function() {
+            const queryParams = new URLSearchParams(window.location.search);
+            const preFilledPathQueryParam = queryParams.get('path');
+            const preFilledPath = window.location.pathname;
 
-        const pathInput = document.getElementById('path');
-        if (preFilledPathQueryParam) {
-          pathInput.value = preFilledPathQueryParam
-        } else if (preFilledPath) {
-          pathInput.value = preFilledPath;
-        }
+            const pathInput = document.getElementById('path');
+            if (preFilledPathQueryParam) {
+                pathInput.value = preFilledPathQueryParam
+            } else if (preFilledPath) {
+                pathInput.value = preFilledPath;
+            }
 
-        const createForm = document.getElementById('createForm');
-        createForm.addEventListener('submit', function(event) {
-          event.preventDefault();
+            const createForm = document.getElementById('createForm');
+            createForm.addEventListener('submit', function(event) {
+                event.preventDefault();
 
-          const path = document.getElementById('path').value.trim();
-          const url = document.getElementById('url').value.trim();
+                const path = document.getElementById('path').value.trim();
+                const url = document.getElementById('url').value.trim();
 
-          if (path === '' || url === '') {
-            alert('Path and URL cannot be empty');
-            return;
-          }
+                if (path === '' || url === '') {
+                    alert('Path and URL cannot be empty');
+                    return;
+                }
 
-          const urlRegex = /^(http:\/\/www\.|https:\/\/www\.|http:\/\/|https:\/\/)?[a-z0-9]+([\-\.]{1}[a-z0-9]+)*(\.[a-z]{2,5})?(:[0-9]{1,5})?(\/.*)?$/;
-          if (!urlRegex.test(url)) {
-            alert('Invalid URL format');
-            return;
-          }
+                const urlRegex = /^(http:\/\/www\.|https:\/\/www\.|http:\/\/|https:\/\/)?[a-z0-9]+([\-\.]{1}[a-z0-9]+)*(\.[a-z]{2,5})?(:[0-9]{1,5})?(\/.*)?$/;
+                if (!urlRegex.test(url)) {
+                    alert('Invalid URL format');
+                    return;
+                }
 
-          const data = {
-            target: url
-          };
-          fetch(path, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(data)
-          })
-            .then(response => {
-              if (!response.ok) {
-                throw new Error('Network response was not ok');
-              }
-              return response.json();
-            })
-            .then(data => {
-              alert('Shortcut created successfully');
-              window.location.href = '/';
-            })
-            .catch(error => {
-              console.error('Error:', error);
-              alert('Failed to create shortcut');
+                const data = {
+                    target: url
+                };
+
+                const postPath = path.startsWith("/") ? apiPath + path : apiPath + "/" + path;
+
+                fetch(postPath, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        alert('Shortcut created successfully');
+                        window.location.href = '/';
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('Failed to create shortcut');
+                    });
             });
-        });
-      })
+        })
     </script>
   </body>
 </html>
