@@ -1,14 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
+<head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Create New Shortcut</title>
     <link rel="stylesheet" href="static/styles.css">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@400;700&display=swap">
-  </head>
-  <body>
-    <div class="container">
+</head>
+<body>
+<div class="container">
       <pre class="ascii-art">
 
  ██████╗  ██████╗     ██╗██╗     ██╗███╗   ██╗██╗  ██╗███████╗
@@ -19,80 +19,80 @@
  ╚═════╝  ╚═════╝ ╚═╝    ╚══════╝╚═╝╚═╝  ╚═══╝╚═╝  ╚═╝╚══════╝
 
       </pre>
-      <form id="createForm" action="/create" method="POST">
+    <form id="createForm" action="/create" method="POST">
         <div class="form-group">
-          <label for="path">Path:</label>
-          <input type="text" id="path" name="path" required>
+            <label for="path">Path:</label>
+            <input type="text" id="path" name="path" required>
         </div>
         <div class="form-group">
-          <label for="url">URL:</label>
-          <input type="url" id="url" name="url" required>
+            <label for="url">URL:</label>
+            <input type="url" id="url" name="url" required>
         </div>
         <button type="submit">Create Shortcut</button>
-      </form>
-    </div>
+    </form>
+</div>
 
-    <script>
-        const apiPath = "/api/v1"
-        document.addEventListener('DOMContentLoaded', function() {
-            const queryParams = new URLSearchParams(window.location.search);
-            const preFilledPathQueryParam = queryParams.get('path');
-            const preFilledPath = window.location.pathname;
+<script>
+    const apiPath = "/api/v1"
+    document.addEventListener('DOMContentLoaded', function() {
+        const queryParams = new URLSearchParams(window.location.search);
+        const preFilledPathQueryParam = queryParams.get('path');
+        const preFilledPath = window.location.pathname;
 
-            const pathInput = document.getElementById('path');
-            if (preFilledPathQueryParam) {
-                pathInput.value = preFilledPathQueryParam
-            } else if (preFilledPath) {
-                pathInput.value = preFilledPath;
+        const pathInput = document.getElementById('path');
+        if (preFilledPathQueryParam) {
+            pathInput.value = preFilledPathQueryParam
+        } else if (preFilledPath) {
+            pathInput.value = preFilledPath;
+        }
+
+        const createForm = document.getElementById('createForm');
+        createForm.addEventListener('submit', function(event) {
+            event.preventDefault();
+
+            const path = document.getElementById('path').value.trim();
+            const url = document.getElementById('url').value.trim();
+
+            if (path === '' || url === '') {
+                alert('Path and URL cannot be empty');
+                return;
             }
 
-            const createForm = document.getElementById('createForm');
-            createForm.addEventListener('submit', function(event) {
-                event.preventDefault();
+            const urlRegex = /^(http:\/\/www\.|https:\/\/www\.|http:\/\/|https:\/\/)?[a-z0-9]+([\-\.]{1}[a-z0-9]+)*(\.[a-z]{2,5})?(:[0-9]{1,5})?(\/.*)?$/;
+            if (!urlRegex.test(url)) {
+                alert('Invalid URL format');
+                return;
+            }
 
-                const path = document.getElementById('path').value.trim();
-                const url = document.getElementById('url').value.trim();
+            const data = {
+                target: url
+            };
 
-                if (path === '' || url === '') {
-                    alert('Path and URL cannot be empty');
-                    return;
-                }
+            const postPath = path.startsWith("/") ? apiPath + path : apiPath + "/" + path;
 
-                const urlRegex = /^(http:\/\/www\.|https:\/\/www\.|http:\/\/|https:\/\/)?[a-z0-9]+([\-\.]{1}[a-z0-9]+)*(\.[a-z]{2,5})?(:[0-9]{1,5})?(\/.*)?$/;
-                if (!urlRegex.test(url)) {
-                    alert('Invalid URL format');
-                    return;
-                }
-
-                const data = {
-                    target: url
-                };
-
-                const postPath = path.startsWith("/") ? apiPath + path : apiPath + "/" + path;
-
-                fetch(postPath, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(data)
+            fetch(postPath, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
                 })
-                    .then(response => {
-                        if (!response.ok) {
-                            throw new Error('Network response was not ok');
-                        }
-                        return response.json();
-                    })
-                    .then(data => {
-                        alert('Shortcut created successfully');
-                        window.location.href = '/';
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                        alert('Failed to create shortcut');
-                    });
-            });
-        })
-    </script>
-  </body>
+                .then(() => {
+                    alert('Shortcut created successfully');
+                    window.location.href = '/';
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Failed to create shortcut');
+                });
+        });
+    })
+</script>
+</body>
 </html>

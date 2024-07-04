@@ -1,14 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
+<head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Go/Links</title>
     <link rel="stylesheet" href="static/styles.css">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@400;700&display=swap">
-  </head>
-  <body>
-    <div class="container">
+</head>
+<body>
+<div class="container">
       <pre class="ascii-art">
 
  ██████╗  ██████╗     ██╗██╗     ██╗███╗   ██╗██╗  ██╗███████╗
@@ -19,33 +19,33 @@
  ╚═════╝  ╚═════╝ ╚═╝    ╚══════╝╚═╝╚═╝  ╚═══╝╚═╝  ╚═╝╚══════╝
 
       </pre>
-      <div class="table-container">
+    <div class="table-container">
         <table>
-          <thead>
+            <thead>
             <tr>
-              <th>Path</th>
-              <th>URL</th>
-              <th class="action-column"></th>
+                <th>Path</th>
+                <th>URL</th>
+                <th class="action-column"></th>
             </tr>
-          </thead>
-          <tbody id="redirectsTableBody">
+            </thead>
+            <tbody id="redirectsTableBody">
             <!-- Table rows will be dynamically populated here -->
-          </tbody>
+            </tbody>
         </table>
-      </div>
     </div>
+</div>
 
-    <script>
-        const apiPath = '/api/v1'
-      const redirectsTableBody = document.getElementById('redirectsTableBody');
-      fetch(apiPath + '/all')
+<script>
+    const apiPath = '/api/v1'
+    const redirectsTableBody = document.getElementById('redirectsTableBody');
+    fetch(apiPath + '/all')
         .then(response => response.json())
         .then(data => {
-          for (const path in data) {
-            if (data.hasOwnProperty(path)) {
-              const url = data[path];
-              const tableRow = document.createElement('tr');
-              tableRow.innerHTML = `
+            for (const path in data) {
+                if (data.hasOwnProperty(path)) {
+                    const url = data[path];
+                    const tableRow = document.createElement('tr');
+                    tableRow.innerHTML = `
               <td>${path}</td>
               <td><a href="${url}" target="_blank">${url}</a></td>
               <td>
@@ -53,37 +53,37 @@
                 <button class="update-button" data-id="${path}">Update</button>
               </td>
             `;
-              redirectsTableBody.appendChild(tableRow);
+                    redirectsTableBody.appendChild(tableRow);
+                }
             }
-          }
         })
         .catch(error => {
-          console.error('Error fetching redirects:', error);
+            console.error('Error fetching redirects:', error);
         });
 
-      document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function() {
         redirectsTableBody.addEventListener('click', function(event) {
-          if (event.target.classList.contains('delete-button')) {
-            const id = event.target.getAttribute('data-id');
-            fetch(apiPath + `/${id}`, {
-              method: 'DELETE',
-            })
-            .then(data => {
-              alert('Shortcut deleted successfully');
-              window.location.href = '/';
-            })
-            .catch(error => {
-              console.error('Error deleting row:', error);
-            });
-          }
+            if (event.target.classList.contains('delete-button')) {
+                const id = event.target.getAttribute('data-id');
+                fetch(apiPath + `/${id}`, {
+                    method: 'DELETE',
+                })
+                    .then(data => {
+                        alert('Shortcut deleted successfully');
+                        window.location.href = '/';
+                    })
+                    .catch(error => {
+                        console.error('Error deleting row:', error);
+                    });
+            }
 
-          if (event.target.classList.contains('update-button')) {
-            const id = event.target.getAttribute('data-id');
-            window.location.href = `/update?path=${id}`;
-          }
+            if (event.target.classList.contains('update-button')) {
+                const id = event.target.getAttribute('data-id');
+                window.location.href = `/update?path=${id}`;
+            }
         });
-      });
-    </script>
-  </body>
+    });
+</script>
+</body>
 </html>
 
