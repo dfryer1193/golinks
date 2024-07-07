@@ -33,6 +33,7 @@ table {
   background-color: #444;
   color: #fff;
   margin: 0 auto;
+  overflow-x: auto;
 }
 
 table th, table td {
@@ -46,6 +47,30 @@ table th {
 
 table td {
   border-top: 1px solid #666;
+}
+
+.nowrap-table th,
+.nowrap-table td {
+  padding: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 0;
+}
+
+.nowrap-table th:nth-child(1),
+.nowrap-table td:nth-child(1) {
+  width: 25%;
+}
+
+.nowrap-table th:nth-child(2),
+.nowrap-table td:nth-child(2) {
+  width: 50%;
+}
+
+.nowrap-table th:nth-child(3),
+.nowrap-table td:nth-child(3) {
+  width: 25%;
 }
 
 .delete-button {
