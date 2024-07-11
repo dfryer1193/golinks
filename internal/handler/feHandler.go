@@ -14,11 +14,12 @@ const embedDir = "static/"
 const list = embedDir + "index.html"
 const css = embedDir + "styles.css"
 const newLink = embedDir + "new.html"
+const favicon = embedDir + "favicon.ico"
 
 func (h *GolinkHandler) getServedFePaths() map[string]func(w http.ResponseWriter) {
 	return map[string]func(w http.ResponseWriter){
 		"/":                  h.serveList,
-		"/favicon.ico":       func(w http.ResponseWriter) {}, // Ignore favicon requests
+		"/favicon.ico":       h.serveFavicon,
 		"/static/styles.css": h.serveStyles,
 		"/static/update":     h.serveNewForm,
 		"/static/index.html": h.serveList,
@@ -49,6 +50,20 @@ func (h *GolinkHandler) serveStyles(w http.ResponseWriter) {
 
 func (h *GolinkHandler) serveNewForm(w http.ResponseWriter) {
 	serveEmbeddedHtml(newLink, w)
+}
+
+func (h *GolinkHandler) serveFavicon(w http.ResponseWriter) {
+	iconBytes, err := content.ReadFile(favicon)
+	if err != nil {
+		http.Error(w, "Error serving favicon", http.StatusInternalServerError)
+		log.Err(err).Msg("Error reading embedded favicon")
+	}
+
+	_, err = w.Write(iconBytes)
+	if err != nil {
+		http.Error(w, "Error writing favicon", http.StatusInternalServerError)
+		log.Err(err).Msg("Error writing favicon to response")
+	}
 }
 
 func serveEmbeddedHtml(filename string, w http.ResponseWriter) {

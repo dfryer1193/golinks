@@ -23,6 +23,19 @@ type targetUpdate struct {
 	New *pathAndTarget `json:"new"`
 }
 
+type alfredItem struct {
+	Uid          string `json:"uid"`
+	ObjType      string `json:"type"`
+	Title        string `json:"title"`
+	Subtitle     string `json:"subtitle"`
+	Arg          string `json:"arg"`
+	Autocomplete string `josn:"autocomplete"`
+}
+
+type alfredResponse struct {
+	Items []alfredItem `json:"items"`
+}
+
 const apiPath = "/api/v1/"
 
 func (h *GolinkHandler) handleV1ApiRequest(w http.ResponseWriter, r *http.Request) {
@@ -42,6 +55,9 @@ func (h *GolinkHandler) handleV1ApiRequest(w http.ResponseWriter, r *http.Reques
 func (h *GolinkHandler) handleApiGet(w http.ResponseWriter, strippedPath string) {
 	if strippedPath == "all" {
 		h.getAll(w)
+		return
+	} else if strippedPath == "all/alfred" {
+		h.getAllForAlfred(w)
 		return
 	}
 
@@ -118,6 +134,40 @@ func (h *GolinkHandler) getAll(w http.ResponseWriter) {
 	if err != nil {
 		http.Error(w, "Error encoding JSON", http.StatusInternalServerError)
 		log.Err(err).Msg("Error encoding link map to JSON")
+		return
+	}
+}
+
+func (h *GolinkHandler) getAllForAlfred(w http.ResponseWriter) {
+	items := []alfredItem{}
+	mapItems := h.linkMap.GetAllAsString()
+
+	for key, val := range mapItems {
+		item := alfredItem{
+			Uid:          key,
+			Title:        key,
+			Subtitle:     val,
+			Arg:          val,
+			Autocomplete: key,
+		}
+		items = append(items, item)
+	}
+
+	r := alfredResponse{
+		Items: items,
+	}
+
+	jsonBytes, err := json.Marshal(r)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		log.Err(err).Msg("Error encoding JSON")
+		return
+	}
+
+	_, err = w.Write(jsonBytes)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		log.Err(err).Msg("Error writing response body")
 		return
 	}
 }
