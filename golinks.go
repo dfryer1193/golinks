@@ -60,7 +60,9 @@ func main() {
 		Out:        os.Stdout,
 		TimeFormat: time.RFC3339Nano,
 	})
-	zerolog.SetGlobalLevel(getLevelFromArg(stringLogLevel))
+	level := getLevelFromArg(stringLogLevel)
+	log.Info().Str("loglevel", level.String()).Msg("Setting log level...")
+	zerolog.SetGlobalLevel(level)
 
 	log.Info().Int("port", port).Msg("Starting http server")
 
@@ -77,7 +79,7 @@ func getLevelFromArg(arg string) zerolog.Level {
 	case "DEBUG":
 		return zerolog.DebugLevel
 	case "INFO":
-		return zerolog.DebugLevel
+		return zerolog.InfoLevel
 	case "WARN":
 		return zerolog.WarnLevel
 	case "ERROR":
