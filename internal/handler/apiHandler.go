@@ -144,7 +144,7 @@ func (h *GolinkHandler) get(w http.ResponseWriter, strippedPath string) {
 }
 
 func extractPathAndTarget(req *http.Request) (string, *url.URL, error) {
-	path := strings.TrimPrefix(req.URL.Path, apiPath)
+	path := strings.TrimSuffix(strings.TrimPrefix(req.URL.Path, apiPath), "/") // Don't allow trailing slashes for shortcuts
 	target, err := getBody(req)
 	if err != nil {
 		return "", nil, err

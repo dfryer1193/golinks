@@ -44,7 +44,7 @@ func (h *GolinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 func (h *GolinkHandler) handleGet(w http.ResponseWriter, req *http.Request) {
-	path := strings.TrimPrefix(req.URL.Path, "/")
+	path := strings.TrimSuffix(strings.TrimPrefix(req.URL.Path, "/"), "/") // Disallow trailing slashes
 
 	target, exists := h.linkMap.Get(path)
 
