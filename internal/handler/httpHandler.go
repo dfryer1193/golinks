@@ -1,11 +1,11 @@
 package handler
 
 import (
-	"log/slog"
 	"net/http"
 	"strings"
 
 	"github.com/dfryer1193/golinks/internal/links"
+	"github.com/rs/zerolog/log"
 )
 
 // GolinkHandler handles all incoming/outgoing http requests for go links.
@@ -22,7 +22,8 @@ func NewGolinkHandler(linkMapPtr *links.LinkMap) *GolinkHandler {
 
 // ServeHTTP handles the base logic of handling http requests for the GolinkHandler
 func (h *GolinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	slog.Info(req.Method + " " + req.URL.Path)
+	log.Info().Msg(req.Method + " " + req.URL.Path)
+	log.Debug().Msg(req.Method + " " + req.Host)
 
 	if strings.HasPrefix(req.URL.Path, apiPath) {
 		h.handleV1ApiRequest(w, req)
@@ -48,6 +49,7 @@ func (h *GolinkHandler) handleGet(w http.ResponseWriter, req *http.Request) {
 	target, exists := h.linkMap.Get(path)
 
 	if exists {
+		log.Debug().Str("target", target.String()).Msg("Shortcut found! Redirecting...")
 		http.Redirect(w, req, target.String(), http.StatusTemporaryRedirect)
 		return
 	}

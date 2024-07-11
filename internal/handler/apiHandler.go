@@ -2,10 +2,11 @@ package handler
 
 import (
 	"encoding/json"
-	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
+
+	"github.com/rs/zerolog/log"
 )
 
 type linkTarget struct {
@@ -70,15 +71,13 @@ func (h *GolinkHandler) handleApiPost(w http.ResponseWriter, r *http.Request) {
 		err := h.linkMap.Update(path, target)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			slog.Error("Encountered an error writing config", "error", err)
-			panic(1)
+			log.Fatal().Err(err).Msg("Encountered an error writing config")
 		}
 	} else {
 		err = h.linkMap.Put(path, target)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			slog.Error("Encountered an error writing config", "error", err)
-			panic(1)
+			log.Fatal().Err(err).Msg("Encountered an error writing config")
 		}
 	}
 
@@ -118,7 +117,7 @@ func (h *GolinkHandler) getAll(w http.ResponseWriter) {
 	err := json.NewEncoder(w).Encode(h.linkMap.GetAllAsString())
 	if err != nil {
 		http.Error(w, "Error encoding JSON", http.StatusInternalServerError)
-		slog.Error("Error encoding link map to JSON", "error", err)
+		log.Err(err).Msg("Error encoding link map to JSON")
 		return
 	}
 }
@@ -132,14 +131,14 @@ func (h *GolinkHandler) get(w http.ResponseWriter, strippedPath string) {
 	jsonBytes, err := json.Marshal(url)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		slog.Error("Error encoding JSON", "error", err)
+		log.Err(err).Msg("Error encoding JSON")
 		return
 	}
 
 	_, err = w.Write(jsonBytes)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		slog.Error("Error writing response body", "error", err)
+		log.Err(err).Msg("Error writing response body")
 		return
 	}
 }

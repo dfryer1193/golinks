@@ -3,7 +3,6 @@ package links
 import (
 	"bufio"
 	"fmt"
-	"log/slog"
 	"net/url"
 	"os"
 	"os/user"
@@ -13,7 +12,10 @@ import (
 	"unicode"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/rs/zerolog/log"
 )
+
+type ParseError struct{}
 
 // LinkMap houses the map of redirects, and keeps track of the backing file for
 // maintaining the map across restarts. It also handles thread safety.
@@ -32,7 +34,7 @@ func NewLinkMap(requestedConfig string) *LinkMap {
 	path, config := findConfig(requestedConfig)
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		slog.Error("", "error", err)
+		log.Fatal().Err(err).Msg("Error creating file watcher")
 	}
 
 	linkMap := LinkMap{
@@ -50,7 +52,7 @@ func NewLinkMap(requestedConfig string) *LinkMap {
 func getHomeDir() string {
 	currentUser, err := user.Current()
 	if err != nil {
-		slog.Error("", "error", err)
+		log.Fatal().Err(err).Msg("Failed to get current user")
 	}
 
 	return currentUser.HomeDir
@@ -72,14 +74,17 @@ func findConfig(requestedConfig string) (string, *os.File) {
 		}
 		file, err := openFile(config)
 		if err == nil { // Note the deviation from the standard err != nil
-			slog.Info("Using config file " + config)
+			log.Info().Msg("Using config file " + config)
 			return config, file
 		}
 		errs = append(errs, err)
 	}
 
-	slog.Error("Could not find link config", "errors", errs)
-	panic(errs)
+	for _, err := range errs {
+		log.Err(err)
+	}
+	log.Fatal().Msg("Failed to find any config")
+	return "", nil
 }
 
 func openFile(path string) (*os.File, error) {
@@ -102,13 +107,14 @@ func parseLine(line string, lineNum int) (string, *url.URL) {
 		if len(parts) == 0 {
 			return "", nil
 		}
-		slog.Error("Malformed config. Each non-empty line must have exactly two entries.", "line", lineNum)
+		err := &ParseError{}
+		log.Fatal().Err(err).Int("line", lineNum).Msg("Malformed config. Each non-empty line must have exactly two entries.")
 		panic(1)
 	}
 
 	target, err := url.Parse(parts[1])
 	if err != nil {
-		slog.Error("Malformed config. Invalid url.", "line", lineNum, "url", parts[1])
+		log.Err(err).Int("line", lineNum).Str("url", parts[1]).Msg("Malformed config. Invalid url")
 	}
 
 	return parts[0], target
@@ -139,7 +145,7 @@ func (l *LinkMap) watchConfig(watcher *fsnotify.Watcher) {
 	name := filepath.Base(l.configPath)
 	err := watcher.Add(dir)
 	if err != nil {
-		slog.Error("Failed to add watcher on config dir. Config will not live reload", "error", err)
+		log.Err(err).Msg("Failed to add watcher on config dir. Config will not live reload")
 	}
 	for {
 		select {
@@ -147,9 +153,9 @@ func (l *LinkMap) watchConfig(watcher *fsnotify.Watcher) {
 			if !ok {
 				return
 			}
-			slog.Debug("File watch event received!")
+			log.Debug().Msg("File watch event received!")
 			if filepath.Base(event.Name) == name && (event.Has(fsnotify.Write) || event.Has(fsnotify.Create)) {
-				slog.Debug("Config file updated, reloading...")
+				log.Debug().Msg("Config file updated, reloading...")
 				l.update()
 			}
 		case err, ok := <-watcher.Errors:
@@ -157,7 +163,7 @@ func (l *LinkMap) watchConfig(watcher *fsnotify.Watcher) {
 				return
 			}
 			if err != nil {
-				slog.Error("File watch error received", "error", err)
+				log.Err(err).Msg("File watch error received")
 			}
 			fmt.Println(err)
 		}
@@ -167,14 +173,13 @@ func (l *LinkMap) watchConfig(watcher *fsnotify.Watcher) {
 func (l *LinkMap) update() {
 	file, err := os.OpenFile(l.configPath, os.O_RDONLY, 0644)
 	if err != nil {
-		slog.Error("Cound not open config for reading", "file", l.configPath)
-		panic(1)
+		log.Fatal().Err(err).Str("file", l.configPath).Msg("Cound not open config for reading")
 	}
 	defer file.Close()
 
 	l.mapLock.Lock()
 	defer l.mapLock.Unlock()
-	slog.Debug("Reading config file", "file", l.configPath)
+	log.Debug().Str("file", l.configPath).Msg("Reading config file")
 	l.m = parseConfig(file)
 }
 
@@ -327,4 +332,8 @@ func (l *LinkMap) replaceConfigInPlace() error {
 		return err
 	}
 	return nil
+}
+
+func (e *ParseError) Error() string {
+	return ""
 }

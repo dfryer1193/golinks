@@ -3,13 +3,14 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
-	"log/slog"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/dfryer1193/golinks/internal/handler"
 	"github.com/dfryer1193/golinks/internal/links"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
 func help() {
@@ -52,10 +53,15 @@ func main() {
 
 	flag.Parse()
 
-	slog.Info("Starting http server", "port", port)
+	log.Logger = log.Output(zerolog.ConsoleWriter{
+		Out:        os.Stdout,
+		TimeFormat: time.RFC3339Nano,
+	})
+
+	log.Info().Int("port", port).Msg("Starting http server")
 
 	redirector := handler.NewGolinkHandler(links.NewLinkMap(configFile))
 	if err := http.ListenAndServe(fmt.Sprintf(":%d", port), redirector); err != nil {
-		log.Fatal(err)
+		log.Fatal().Err(err)
 	}
 }

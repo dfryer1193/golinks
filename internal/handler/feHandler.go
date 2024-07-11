@@ -2,8 +2,9 @@ package handler
 
 import (
 	"embed"
-	"log/slog"
 	"net/http"
+
+	"github.com/rs/zerolog/log"
 )
 
 //go:embed static/*
@@ -33,7 +34,7 @@ func (h *GolinkHandler) serveStyles(w http.ResponseWriter) {
 	cssBytes, err := content.ReadFile(css)
 	if err != nil {
 		http.Error(w, "Error reading styles.css", http.StatusInternalServerError)
-		slog.Error("Error reading embedded styles.css", "error", err)
+		log.Err(err).Msg("Error reading embedded styles.css")
 		return
 	}
 
@@ -42,7 +43,7 @@ func (h *GolinkHandler) serveStyles(w http.ResponseWriter) {
 	_, err = w.Write(cssBytes)
 	if err != nil {
 		http.Error(w, "Error writing response", http.StatusInternalServerError)
-		slog.Error("Error writing css response", "error", err)
+		log.Err(err).Msg("Error writing css response")
 	}
 }
 
@@ -54,13 +55,13 @@ func serveEmbeddedHtml(filename string, w http.ResponseWriter) {
 	htmlBytes, err := content.ReadFile(filename)
 	if err != nil {
 		http.Error(w, "Error reading index.html", http.StatusInternalServerError)
-		slog.Error("Error reading embedded index.html", "error", err)
+		log.Err(err).Msg("Error reading embedded index.html")
 		return
 	}
 
 	_, err = w.Write(htmlBytes)
 	if err != nil {
 		http.Error(w, "Error writing response", http.StatusInternalServerError)
-		slog.Error("Error writing html response", "error", err)
+		log.Err(err).Msg("Error writing html response")
 	}
 }
