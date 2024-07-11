@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/dfryer1193/golinks/internal/handler"
@@ -47,8 +48,10 @@ respected, though full paths are.
 func main() {
 	var port int
 	var configFile string
+	var stringLogLevel string
 	flag.IntVar(&port, "port", 8080, "The port to listen on")
 	flag.StringVar(&configFile, "config", "", "Location of the config file")
+	flag.StringVar(&stringLogLevel, "level", "INFO", "The level to log at")
 	flag.Usage = help
 
 	flag.Parse()
@@ -57,11 +60,33 @@ func main() {
 		Out:        os.Stdout,
 		TimeFormat: time.RFC3339Nano,
 	})
+	zerolog.SetGlobalLevel(getLevelFromArg(stringLogLevel))
 
 	log.Info().Int("port", port).Msg("Starting http server")
 
 	redirector := handler.NewGolinkHandler(links.NewLinkMap(configFile))
 	if err := http.ListenAndServe(fmt.Sprintf(":%d", port), redirector); err != nil {
 		log.Fatal().Err(err)
+	}
+}
+
+func getLevelFromArg(arg string) zerolog.Level {
+	switch strings.ToUpper(arg) {
+	case "TRACE":
+		return zerolog.TraceLevel
+	case "DEBUG":
+		return zerolog.DebugLevel
+	case "INFO":
+		return zerolog.DebugLevel
+	case "WARN":
+		return zerolog.WarnLevel
+	case "ERROR":
+		return zerolog.ErrorLevel
+	case "FATAL":
+		return zerolog.FatalLevel
+	case "PANIC":
+		return zerolog.PanicLevel
+	default:
+		return zerolog.InfoLevel
 	}
 }
