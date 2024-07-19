@@ -4,25 +4,33 @@ import (
 	"slices"
 )
 
-type SearchResult struct {
+const shortcutEditThreshold = 3
+
+type Result struct {
 	Value string
 	Score int
 }
 
-func StringSearch(query string, options []string) []SearchResult {
-	results := []SearchResult{}
+func StringSearch(query string, options []string) []Result {
+	results := make([]Result, len(options))
 	for _, val := range options {
 		score := computeLevenshtein(query, val)
-		result := SearchResult{
+		result := Result{
 			Value: val,
 			Score: score,
 		}
 		results = append(results, result)
 	}
 
-	slices.SortStableFunc(results, func(a, b SearchResult) int {
-		return -1 * (a.Score - b.Score) // Lower scores have closer matches
+	slices.SortStableFunc(results, func(a, b Result) int {
+		return -1 * (a.Score - b.Score) // Lower scores are closer matches
 	})
+
+	for i, result := range results {
+		if result.Score > shortcutEditThreshold {
+			return results[:i]
+		}
+	}
 
 	return results
 }
@@ -63,12 +71,12 @@ func computeLevenshtein(query, value string) int {
 }
 
 func minOf(vars ...int) int {
-	min := vars[0]
+	m := vars[0]
 
 	for _, i := range vars {
-		if min > i {
-			min = i
+		if m > i {
+			m = i
 		}
 	}
-	return min
+	return m
 }
