@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"github.com/dfryer1193/golinks/internal/search"
 	"net/http"
 	"net/url"
 	"strings"
@@ -29,7 +30,7 @@ type alfredItem struct {
 	Title        string `json:"title"`
 	Subtitle     string `json:"subtitle"`
 	Arg          string `json:"arg"`
-	Autocomplete string `josn:"autocomplete"`
+	Autocomplete string `json:"autocomplete"`
 }
 
 type alfredResponse struct {
@@ -42,7 +43,7 @@ func (h *GolinkHandler) handleV1ApiRequest(w http.ResponseWriter, r *http.Reques
 	strippedPath := strings.TrimPrefix(r.URL.Path, apiPath)
 	switch r.Method {
 	case http.MethodGet:
-		h.handleApiGet(w, strippedPath)
+		h.handleApiGet(w, r, strippedPath)
 	case http.MethodPost:
 		h.handleApiPost(w, r)
 	case http.MethodDelete:
@@ -52,13 +53,15 @@ func (h *GolinkHandler) handleV1ApiRequest(w http.ResponseWriter, r *http.Reques
 	}
 }
 
-func (h *GolinkHandler) handleApiGet(w http.ResponseWriter, strippedPath string) {
+func (h *GolinkHandler) handleApiGet(w http.ResponseWriter, r *http.Request, strippedPath string) {
 	if strippedPath == "all" {
 		h.getAll(w)
 		return
 	} else if strippedPath == "all/alfred" {
 		h.getAllForAlfred(w)
 		return
+	} else if strippedPath == "search" {
+		h.search(w, r)
 	}
 
 	h.get(w, strippedPath)
@@ -81,7 +84,7 @@ func (h *GolinkHandler) handleApiPost(w http.ResponseWriter, r *http.Request) {
 	if exists { //TODO: Move this check inside the LinkMap, return delta from update fn
 		oldPathAndTarget = &pathAndTarget{
 			Path:   path,
-			Target: oldTarget.String(),
+			Target: oldTarget,
 		}
 
 		err := h.linkMap.Update(path, target)
@@ -130,7 +133,7 @@ func (h *GolinkHandler) handleApiDelete(w http.ResponseWriter, strippedPath stri
 }
 
 func (h *GolinkHandler) getAll(w http.ResponseWriter) {
-	err := json.NewEncoder(w).Encode(h.linkMap.GetAllAsString())
+	err := json.NewEncoder(w).Encode(h.linkMap.GetAll())
 	if err != nil {
 		http.Error(w, "Error encoding JSON", http.StatusInternalServerError)
 		log.Err(err).Msg("Error encoding link map to JSON")
@@ -139,9 +142,81 @@ func (h *GolinkHandler) getAll(w http.ResponseWriter) {
 }
 
 func (h *GolinkHandler) getAllForAlfred(w http.ResponseWriter) {
-	items := []alfredItem{}
-	mapItems := h.linkMap.GetAllAsString()
+	sendAlfredResponse(w, h.linkMap.GetAll())
+}
 
+func (h *GolinkHandler) get(w http.ResponseWriter, strippedPath string) {
+	url, exists := h.linkMap.Get(strippedPath)
+	if !exists {
+		w.WriteHeader(http.StatusNotFound)
+	}
+
+	jsonBytes, err := json.Marshal(url)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		log.Err(err).Msg("Error encoding JSON")
+		return
+	}
+
+	_, err = w.Write(jsonBytes)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		log.Err(err).Msg("Error writing response body")
+		return
+	}
+}
+
+func (h *GolinkHandler) search(w http.ResponseWriter, r *http.Request) {
+	options := h.linkMap.GetAllKeys()
+	query := r.URL.Query().Get("query")
+	isAlfredRequest := r.URL.Query().Get("isAlfred") == "true"
+	hits := search.StringSearch(query, options)
+	keyHits := make([]string, len(hits))
+	for _, hit := range hits {
+		keyHits = append(keyHits, hit.Value)
+	}
+
+	hitMap := h.linkMap.GetFiltered(keyHits)
+
+	if isAlfredRequest {
+		sendAlfredResponse(w, hitMap)
+	}
+
+	err := json.NewEncoder(w).Encode(hitMap)
+	if err != nil {
+		http.Error(w, "Error encoding JSON", http.StatusInternalServerError)
+		log.Err(err).Msg("Error encoding link map to JSON")
+		return
+	}
+}
+
+func extractPathAndTarget(req *http.Request) (string, *url.URL, error) {
+	path := strings.TrimSuffix(strings.TrimPrefix(req.URL.Path, apiPath), "/") // Don't allow trailing slashes for shortcuts
+	target, err := getBody(req)
+	if err != nil {
+		return "", nil, err
+	}
+
+	targetURL, err := url.Parse(target.Target)
+	if err != nil {
+		return "", nil, err
+	}
+
+	return path, targetURL, nil
+}
+
+func getBody(req *http.Request) (*linkTarget, error) {
+	var body linkTarget
+	err := json.NewDecoder(req.Body).Decode(&body)
+	if err != nil {
+		return nil, err
+	}
+
+	return &body, nil
+}
+
+func sendAlfredResponse(w http.ResponseWriter, mapItems map[string]string) {
+	items := make([]alfredItem, len(mapItems))
 	for key, val := range mapItems {
 		item := alfredItem{
 			Uid:          key,
@@ -170,50 +245,4 @@ func (h *GolinkHandler) getAllForAlfred(w http.ResponseWriter) {
 		log.Err(err).Msg("Error writing response body")
 		return
 	}
-}
-
-func (h *GolinkHandler) get(w http.ResponseWriter, strippedPath string) {
-	url, exists := h.linkMap.Get(strippedPath)
-	if !exists {
-		w.WriteHeader(http.StatusNotFound)
-	}
-
-	jsonBytes, err := json.Marshal(url)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		log.Err(err).Msg("Error encoding JSON")
-		return
-	}
-
-	_, err = w.Write(jsonBytes)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		log.Err(err).Msg("Error writing response body")
-		return
-	}
-}
-
-func extractPathAndTarget(req *http.Request) (string, *url.URL, error) {
-	path := strings.TrimSuffix(strings.TrimPrefix(req.URL.Path, apiPath), "/") // Don't allow trailing slashes for shortcuts
-	target, err := getBody(req)
-	if err != nil {
-		return "", nil, err
-	}
-
-	targetURL, err := url.Parse(target.Target)
-	if err != nil {
-		return "", nil, err
-	}
-
-	return path, targetURL, nil
-}
-
-func getBody(req *http.Request) (*linkTarget, error) {
-	var body linkTarget
-	err := json.NewDecoder(req.Body).Decode(&body)
-	if err != nil {
-		return nil, err
-	}
-
-	return &body, nil
 }
