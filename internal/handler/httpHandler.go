@@ -49,8 +49,8 @@ func (h *GolinkHandler) handleGet(w http.ResponseWriter, req *http.Request) {
 	target, exists := h.linkMap.Get(path)
 
 	if exists {
-		log.Debug().Str("target", target.String()).Msg("Shortcut found! Redirecting...")
-		http.Redirect(w, req, target.String(), http.StatusTemporaryRedirect)
+		log.Debug().Str("target", target).Msg("Shortcut found! Redirecting...")
+		http.Redirect(w, req, target, http.StatusTemporaryRedirect)
 		return
 	}
 

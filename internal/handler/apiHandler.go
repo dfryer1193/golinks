@@ -41,6 +41,7 @@ const apiPath = "/api/v1/"
 
 func (h *GolinkHandler) handleV1ApiRequest(w http.ResponseWriter, r *http.Request) {
 	strippedPath := strings.TrimPrefix(r.URL.Path, apiPath)
+	log.Debug().Str("path", r.URL.Path).Str("strippedPath", strippedPath).Msg("Handling ")
 	switch r.Method {
 	case http.MethodGet:
 		h.handleApiGet(w, r, strippedPath)
@@ -55,13 +56,17 @@ func (h *GolinkHandler) handleV1ApiRequest(w http.ResponseWriter, r *http.Reques
 
 func (h *GolinkHandler) handleApiGet(w http.ResponseWriter, r *http.Request, strippedPath string) {
 	if strippedPath == "all" {
+		log.Debug().Msg("Getting all entries...")
 		h.getAll(w)
 		return
 	} else if strippedPath == "all/alfred" {
+		log.Debug().Msg("Getting all entries with alfred item formatting...")
 		h.getAllForAlfred(w)
 		return
 	} else if strippedPath == "search" {
+		log.Debug().Msg("Getting search results...")
 		h.search(w, r)
+		return
 	}
 
 	h.get(w, strippedPath)
@@ -146,12 +151,12 @@ func (h *GolinkHandler) getAllForAlfred(w http.ResponseWriter) {
 }
 
 func (h *GolinkHandler) get(w http.ResponseWriter, strippedPath string) {
-	url, exists := h.linkMap.Get(strippedPath)
+	target, exists := h.linkMap.Get(strippedPath)
 	if !exists {
 		w.WriteHeader(http.StatusNotFound)
 	}
 
-	jsonBytes, err := json.Marshal(url)
+	jsonBytes, err := json.Marshal(target)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		log.Err(err).Msg("Error encoding JSON")
@@ -172,8 +177,8 @@ func (h *GolinkHandler) search(w http.ResponseWriter, r *http.Request) {
 	isAlfredRequest := r.URL.Query().Get("isAlfred") == "true"
 	hits := search.StringSearch(query, options)
 	keyHits := make([]string, len(hits))
-	for _, hit := range hits {
-		keyHits = append(keyHits, hit.Value)
+	for i, hit := range hits {
+		keyHits[i] = hit.Value
 	}
 
 	hitMap := h.linkMap.GetFiltered(keyHits)

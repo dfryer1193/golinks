@@ -19,6 +19,10 @@
  ╚═════╝  ╚═════╝ ╚═╝    ╚══════╝╚═╝╚═╝  ╚═══╝╚═╝  ╚═╝╚══════╝
 
       </pre>
+    <div class="search-container">
+        <label for="searchInput">Search Path:</label>
+        <input type="text" id="searchInput" placeholder="Type path to search...">
+    </div>
     <div class="table-container">
         <table>
             <thead>
@@ -38,6 +42,41 @@
 <script>
     const apiPath = '/api/v1'
     const redirectsTableBody = document.getElementById('redirectsTableBody');
+
+    function levenshteinDistance(a, b) {
+        if (a.length === 0) return b.length;
+        if (b.length === 0) return a.length;
+
+        const matrix = [];
+        let i, j;
+
+        // Initialize matrix
+        for (i = 0; i <= b.length; i++) {
+            matrix[i] = [i];
+        }
+
+        for (j = 0; j <= a.length; j++) {
+            matrix[0][j] = j;
+        }
+
+        // Calculate Levenshtein distance
+        for (i = 1; i <= b.length; i++) {
+            for (j = 1; j <= a.length; j++) {
+                if (b.charAt(i - 1) === a.charAt(j - 1)) {
+                    matrix[i][j] = matrix[i - 1][j - 1];
+                } else {
+                    matrix[i][j] = Math.min(
+                        matrix[i - 1][j - 1] + 1, // substitution
+                        matrix[i][j - 1] + 1,     // insertion
+                        matrix[i - 1][j] + 1      // deletion
+                    );
+                }
+            }
+        }
+
+        return matrix[b.length][a.length];
+    }
+
     fetch(apiPath + '/all')
         .then(response => response.json())
         .then(data => {
@@ -81,6 +120,24 @@
                 const id = event.target.getAttribute('data-id');
                 window.location.href = `/update?path=${id}`;
             }
+        });
+
+        const searchInput = document.getElementById('searchInput');
+        searchInput.addEventListener('input', function() {
+            const searchText = searchInput.value.trim().toLowerCase();
+            Array.from(redirectsTableBody.getElementsByTagName('tr')).forEach(function(row) {
+                const pathColumn = row.getElementsByTagName('td')[0]; // Assuming path is the first column
+                if (pathColumn) {
+                    const pathText = pathColumn.textContent.trim().toLowerCase();
+                    const distance = levenshteinDistance(searchText, pathText)
+
+                    if (searchText.length > 1 && distance > 3) {
+                        row.style.display = 'none';
+                    } else {
+                        row.style.display = '';
+                    }
+                }
+            });
         });
     });
 </script>

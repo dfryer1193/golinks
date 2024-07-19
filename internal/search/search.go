@@ -13,17 +13,17 @@ type Result struct {
 
 func StringSearch(query string, options []string) []Result {
 	results := make([]Result, len(options))
-	for _, val := range options {
+	for i, val := range options {
 		score := computeLevenshtein(query, val)
 		result := Result{
 			Value: val,
 			Score: score,
 		}
-		results = append(results, result)
+		results[i] = result
 	}
 
 	slices.SortStableFunc(results, func(a, b Result) int {
-		return -1 * (a.Score - b.Score) // Lower scores are closer matches
+		return a.Score - b.Score // Lower scores are closer matches
 	})
 
 	for i, result := range results {
