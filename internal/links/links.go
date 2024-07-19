@@ -21,7 +21,7 @@ type ParseError struct{}
 // maintaining the map across restarts. It also handles thread safety.
 type LinkMap struct {
 	configPath string
-	m          map[string]url.URL
+	m          map[string]string
 	mapLock    *sync.RWMutex
 	fileLock   *sync.RWMutex
 }
@@ -120,8 +120,8 @@ func parseLine(line string, lineNum int) (string, *url.URL) {
 	return parts[0], target
 }
 
-func parseConfig(filePtr *os.File) map[string]url.URL {
-	linkMap := make(map[string]url.URL)
+func parseConfig(filePtr *os.File) map[string]string {
+	linkMap := make(map[string]string)
 	defer filePtr.Close()
 
 	scanner := bufio.NewScanner(filePtr)
@@ -134,7 +134,7 @@ func parseConfig(filePtr *os.File) map[string]url.URL {
 		if key == "" && target == nil {
 			continue
 		}
-		linkMap[key] = *target
+		linkMap[key] = target.String()
 	}
 
 	return linkMap
@@ -184,25 +184,43 @@ func (l *LinkMap) update() {
 }
 
 // Get returns the url and state of existence for a single key.
-func (l *LinkMap) Get(key string) (url.URL, bool) {
+func (l *LinkMap) Get(key string) (string, bool) {
 	l.mapLock.RLock()
 	defer l.mapLock.RUnlock()
 	target, exists := l.m[key]
 	return target, exists
 }
 
-// GetAllAsString returns a map containing all of the entries from the current
-// LinkMap object, where each of the URLs have been fully stringified for use in
-// an FE-friendly json object
-func (l *LinkMap) GetAllAsString() map[string]string {
+// GetAll returns a map containing all of the entries from the current LinkMap object
+func (l *LinkMap) GetAll() map[string]string {
 	l.mapLock.RLock()
 	defer l.mapLock.RUnlock()
 
-	stringified := make(map[string]string)
-	for key, u := range l.m {
-		stringified[key] = u.String()
+	return l.m
+}
+
+func (l *LinkMap) GetAllKeys() []string {
+	l.mapLock.RLock()
+	defer l.mapLock.RUnlock()
+
+	keys := make([]string, len(l.m))
+	i := 0
+	for key := range l.m {
+		keys[i] = key
+		i++
 	}
-	return stringified
+
+	return keys
+}
+
+func (l *LinkMap) GetFiltered(keys []string) map[string]string {
+	filteredMap := make(map[string]string, len(keys))
+
+	for _, key := range keys {
+		filteredMap[key] = l.m[key]
+	}
+
+	return filteredMap
 }
 
 // Put appends a new entry to the link map. If the entry already exists, it will
@@ -224,7 +242,7 @@ func (l *LinkMap) Put(key string, target *url.URL) error {
 
 	l.mapLock.Lock()
 	defer l.mapLock.Unlock()
-	l.m[key] = *target
+	l.m[key] = target.String()
 
 	return nil
 }
@@ -297,7 +315,7 @@ func (l *LinkMap) updateEntry(key string, target *url.URL) error {
 	if target == nil {
 		delete(l.m, key)
 	} else {
-		l.m[key] = *target
+		l.m[key] = target.String()
 	}
 
 	err = l.replaceConfigInPlace()
