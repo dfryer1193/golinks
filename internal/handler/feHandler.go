@@ -2,8 +2,9 @@ package handler
 
 import (
 	"embed"
-	"log/slog"
 	"net/http"
+
+	"github.com/rs/zerolog/log"
 )
 
 //go:embed static/*
@@ -13,11 +14,12 @@ const embedDir = "static/"
 const list = embedDir + "index.html"
 const css = embedDir + "styles.css"
 const newLink = embedDir + "new.html"
+const favicon = embedDir + "favicon.ico"
 
 func (h *GolinkHandler) getServedFePaths() map[string]func(w http.ResponseWriter) {
 	return map[string]func(w http.ResponseWriter){
 		"/":                  h.serveList,
-		"/favicon.ico":       func(w http.ResponseWriter) {}, // Ignore favicon requests
+		"/favicon.ico":       h.serveFavicon,
 		"/static/styles.css": h.serveStyles,
 		"/static/update":     h.serveNewForm,
 		"/static/index.html": h.serveList,
@@ -33,7 +35,7 @@ func (h *GolinkHandler) serveStyles(w http.ResponseWriter) {
 	cssBytes, err := content.ReadFile(css)
 	if err != nil {
 		http.Error(w, "Error reading styles.css", http.StatusInternalServerError)
-		slog.Error("Error reading embedded styles.css", "error", err)
+		log.Err(err).Msg("Error reading embedded styles.css")
 		return
 	}
 
@@ -42,7 +44,7 @@ func (h *GolinkHandler) serveStyles(w http.ResponseWriter) {
 	_, err = w.Write(cssBytes)
 	if err != nil {
 		http.Error(w, "Error writing response", http.StatusInternalServerError)
-		slog.Error("Error writing css response", "error", err)
+		log.Err(err).Msg("Error writing css response")
 	}
 }
 
@@ -50,17 +52,31 @@ func (h *GolinkHandler) serveNewForm(w http.ResponseWriter) {
 	serveEmbeddedHtml(newLink, w)
 }
 
+func (h *GolinkHandler) serveFavicon(w http.ResponseWriter) {
+	iconBytes, err := content.ReadFile(favicon)
+	if err != nil {
+		http.Error(w, "Error serving favicon", http.StatusInternalServerError)
+		log.Err(err).Msg("Error reading embedded favicon")
+	}
+
+	_, err = w.Write(iconBytes)
+	if err != nil {
+		http.Error(w, "Error writing favicon", http.StatusInternalServerError)
+		log.Err(err).Msg("Error writing favicon to response")
+	}
+}
+
 func serveEmbeddedHtml(filename string, w http.ResponseWriter) {
 	htmlBytes, err := content.ReadFile(filename)
 	if err != nil {
 		http.Error(w, "Error reading index.html", http.StatusInternalServerError)
-		slog.Error("Error reading embedded index.html", "error", err)
+		log.Err(err).Msg("Error reading embedded index.html")
 		return
 	}
 
 	_, err = w.Write(htmlBytes)
 	if err != nil {
 		http.Error(w, "Error writing response", http.StatusInternalServerError)
-		slog.Error("Error writing html response", "error", err)
+		log.Err(err).Msg("Error writing html response")
 	}
 }
