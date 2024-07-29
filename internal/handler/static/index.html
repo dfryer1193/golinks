@@ -129,9 +129,10 @@
                 const pathColumn = row.getElementsByTagName('td')[0]; // Assuming path is the first column
                 if (pathColumn) {
                     const pathText = pathColumn.textContent.trim().toLowerCase();
+                    const isPrefixMatch = pathText.startsWith(searchText)
                     const distance = levenshteinDistance(searchText, pathText)
 
-                    if (searchText.length > 1 && distance > 3) {
+                    if (searchText.length > 1 && (distance > 3 && !isPrefixMatch)) {
                         row.style.display = 'none';
                     } else {
                         row.style.display = '';
