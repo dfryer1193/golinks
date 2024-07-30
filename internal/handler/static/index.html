@@ -85,17 +85,19 @@
                     const url = data[path];
                     const tableRow = document.createElement('tr');
                     tableRow.innerHTML = `
-              <td class="parentCell">
+              <td class="tooltip-cell">
                 ${path}
                 <span class="tooltip">${path}</span>
               </td>
-              <td class="parentCell">
+              <td class="tooltip-cell">
                 <a href="${url}" target="_blank">${url}</a>
                 <span class="tooltip">${url}</span>
               </td>
               <td>
-                <button class="delete-button" data-id="${path}">Delete</button>
-                <button class="update-button" data-id="${path}">Update</button>
+                <div class="div-center">
+                  <button class="delete-button" data-id="${path}">Delete</button>
+                  <button class="update-button" data-id="${path}">Update</button>
+                </div>
               </td>
             `;
                     redirectsTableBody.appendChild(tableRow);
