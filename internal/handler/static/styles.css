@@ -58,6 +58,12 @@ table td {
   max-width: 0;
 }
 
+.div-center {
+  width: 100%;
+  margin: 0 auto;
+  text-align: center;
+}
+
 .nowrap-table th:nth-child(1),
 .nowrap-table td:nth-child(1) {
   width: 25%;
@@ -89,7 +95,7 @@ tr:hover .update-button {
   visibility: visible;
 }
 
-.parentCell {}
+.tooltip-cell {}
 
 .tooltip {
   display: none;
@@ -100,7 +106,7 @@ tr:hover .update-button {
   padding: 3px;
 }
 
-.parentCell:hover span.tooltip {
+.tooltip-cell:hover span.tooltip {
   display:block;
 }
 
