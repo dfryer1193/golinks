@@ -89,6 +89,21 @@ tr:hover .update-button {
   visibility: visible;
 }
 
+.parentCell {}
+
+.tooltip {
+  display: none;
+  position: absolute;
+  z-index: 100;
+  border: 1px;
+  background-color: #666;
+  padding: 3px;
+}
+
+.parentCell:hover span.tooltip {
+  display:block;
+}
+
 a {
   color: #4af;
   text-decoration: none;
