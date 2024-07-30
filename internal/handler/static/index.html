@@ -24,7 +24,7 @@
         <input type="text" id="searchInput" placeholder="Type path to search...">
     </div>
     <div class="table-container">
-        <table>
+        <table class="nowrap-table">
             <thead>
             <tr>
                 <th>Path</th>
@@ -85,8 +85,14 @@
                     const url = data[path];
                     const tableRow = document.createElement('tr');
                     tableRow.innerHTML = `
-              <td>${path}</td>
-              <td><a href="${url}" target="_blank">${url}</a></td>
+              <td class="parentCell">
+                ${path}
+                <span class="tooltip">${path}</span>
+              </td>
+              <td class="parentCell">
+                <a href="${url}" target="_blank">${url}</a>
+                <span class="tooltip">${url}</span>
+              </td>
               <td>
                 <button class="delete-button" data-id="${path}">Delete</button>
                 <button class="update-button" data-id="${path}">Update</button>
@@ -106,14 +112,12 @@
                 const id = event.target.getAttribute('data-id');
                 fetch(apiPath + `/${id}`, {
                     method: 'DELETE',
-                })
-                    .then(data => {
-                        alert('Shortcut deleted successfully');
-                        window.location.href = '/';
-                    })
-                    .catch(error => {
-                        console.error('Error deleting row:', error);
-                    });
+                }).then(() => {
+                    alert('Shortcut deleted successfully');
+                    window.location.href = '/';
+                }).catch(error => {
+                    console.error('Error deleting row:', error);
+                });
             }
 
             if (event.target.classList.contains('update-button')) {
