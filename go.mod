@@ -1,6 +1,6 @@
 module github.com/dfryer1193/golinks
 
-go 1.22.3
+go 1.23
 
 require (
 	github.com/fsnotify/fsnotify v1.7.0
