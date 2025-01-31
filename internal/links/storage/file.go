@@ -204,6 +204,15 @@ func (f *FileStorage) Delete(key string) {
 			Str("key", key).
 			Msg("Failed to delete key")
 	}
+
+	err = f.replaceConfigInPlace()
+	if err != nil {
+		log.
+			Error().
+			Err(err).
+			Str("key", key).
+			Msg("Failed to replace config file in place after delete")
+	}
 }
 
 func (f *FileStorage) Update(key string, target string) {
@@ -215,6 +224,16 @@ func (f *FileStorage) Update(key string, target string) {
 			Str("key", key).
 			Str("target", target).
 			Msg("Failed to update key")
+	}
+
+	err = f.replaceConfigInPlace()
+	if err != nil {
+		log.
+			Error().
+			Err(err).
+			Str("key", key).
+			Str("target", target).
+			Msg("Failed to replace config file in place after update")
 	}
 }
 
