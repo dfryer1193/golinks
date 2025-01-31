@@ -220,16 +220,19 @@ func (f *FileStorage) Update(key string, target string) {
 
 func (f *FileStorage) updateEntry(key string, target string) error {
 	f.fileLock.Lock()
+	defer f.fileLock.Unlock()
 
 	curFile, err := os.OpenFile(f.configPath, os.O_RDONLY, 0600)
 	if err != nil {
 		return err
 	}
+	defer curFile.Close()
 
 	newFile, err := os.OpenFile(f.getScratchConfigFilepath(), os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
 	if err != nil {
 		return err
 	}
+	defer newFile.Close()
 
 	scanner := bufio.NewScanner(curFile)
 	for scanner.Scan() {
@@ -249,9 +252,6 @@ func (f *FileStorage) updateEntry(key string, target string) error {
 			return err
 		}
 	}
-	curFile.Close()
-	newFile.Close()
-	f.fileLock.Unlock()
 
 	return nil
 }
