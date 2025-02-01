@@ -1,13 +1,12 @@
 package storage
 
 import (
-	"github.com/fsnotify/fsnotify"
 	"github.com/rs/zerolog/log"
 	"net/url"
 	"os"
 	"reflect"
-	"sync"
 	"testing"
+	"time"
 )
 
 const TEST_DIR = "./test"
@@ -95,16 +94,6 @@ func TestFileStorage_Put(t *testing.T) {
 func TestFileStorage_Read(t *testing.T) {
 	createTestFile()
 	f := NewFileStorage(TEST_DIR + "/" + TEST_FILE)
-	f.Put("baz", "https://baz.com")
-	m := f.Read()
-	if actual := m["baz"]; actual != "https://baz.com" {
-		log.Fatal().Msgf("Expected entry baz to contain https://baz.com, got %s instead.", actual)
-	}
-	f.Put("baz", "https://abc.com")
-	m = f.Read()
-	if actual := m["baz"]; actual != "https://abc.com" {
-		log.Fatal().Msgf("Expected entry baz to contain https://abc.com, got %s instead.", actual)
-	}
 	tests := []struct {
 		name      string
 		operation string
@@ -160,30 +149,50 @@ func TestFileStorage_Update(t *testing.T) {
 	cleanup()
 }
 
-func TestFileStorage_watchConfig(t *testing.T) {
-	type fields struct {
-		configPath    string
-		fileLock      *sync.RWMutex
-		watcher       *fsnotify.Watcher
-		reloadChannel chan bool
-	}
+func TestFileStorage_ReloadSignaling(t *testing.T) {
+	createTestFile()
+	f := NewFileStorage(TEST_DIR + "/" + TEST_FILE)
+	reloadChannel := f.GetReloadChannel()
 	tests := []struct {
-		name   string
-		fields fields
+		name         string
+		operation    string
+		key          string
+		target       string
+		expectReload bool
 	}{
-		// TODO: Add test cases.
+		{name: "Sends reload signal after new entry", operation: "put", key: "baz", target: "https://baz.com", expectReload: true},
+		{name: "Does not send reload signal after read", operation: "read", expectReload: false},
+		{name: "Sends reload signal after updating target", operation: "update", key: "foo", target: "https://foo.com", expectReload: true},
+		{name: "Does not send reload signal when update does not change target", operation: "update", key: "foo", target: "https://foo.com", expectReload: false},
+		{name: "Sends reload signal when deleting target", operation: "delete", key: "foo", expectReload: true},
+		{name: "Does not send reload signal when delete does not change the file", operation: "delete", key: "foo", expectReload: false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			f := &FileStorage{
-				configPath:    tt.fields.configPath,
-				fileLock:      tt.fields.fileLock,
-				watcher:       tt.fields.watcher,
-				reloadChannel: tt.fields.reloadChannel,
+			switch tt.operation {
+			case "put":
+				f.Put(tt.key, tt.target)
+			case "update":
+				f.Update(tt.key, tt.target)
+			case "delete":
+				f.Delete(tt.key)
+			case "read":
+				f.Read()
 			}
-			f.watchConfig()
+
+			select {
+			case reload := <-reloadChannel:
+				if reload != tt.expectReload {
+					log.Fatal().Msg("Got unexpected reload signal")
+				}
+			case <-time.After(time.Millisecond * 1000):
+				if tt.expectReload {
+					log.Fatal().Msg("Did not receive expected reload signal")
+				}
+			}
 		})
 	}
+	cleanup()
 }
 
 func Test_parseLine(t *testing.T) {
