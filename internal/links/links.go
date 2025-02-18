@@ -102,8 +102,12 @@ func (l *LinkMap) GetAllKeys() []string {
 func (l *LinkMap) GetFiltered(keys []string) map[string]string {
 	filteredMap := make(map[string]string, len(keys))
 
+	l.mapLock.RLock()
+	defer l.mapLock.RUnlock()
 	for _, key := range keys {
-		filteredMap[key] = l.m[key]
+		if v, exists := l.m[key]; exists {
+			filteredMap[key] = v
+		}
 	}
 
 	return filteredMap
@@ -128,6 +132,7 @@ func (l *LinkMap) Delete(key string) error {
 	// Can skip filesystem-intensive writes if the entry already doesn't exist
 	l.mapLock.RLock()
 	if _, exists := l.m[key]; !exists {
+		l.mapLock.RUnlock()
 		return nil
 	}
 	l.mapLock.RUnlock()
