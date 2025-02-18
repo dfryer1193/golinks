@@ -1,6 +1,9 @@
 package handler
 
 import (
+	"github.com/dfryer1193/golinks/config"
+	"github.com/gin-gonic/gin"
+	"github.com/labstack/echo/v4"
 	"net/http"
 	"strings"
 
@@ -13,11 +16,20 @@ type GolinkHandler struct {
 	linkMap *links.LinkMap
 }
 
-// NewGolinkHandler returns a reference to a new instance of a GolinkHandler
-func NewGolinkHandler(linkMapPtr *links.LinkMap) *GolinkHandler {
+// NewGoLinkService returns a reference to a new instance of a GolinkHandler
+func NewGoLinkService(linkMapPtr *links.LinkMap) *GolinkHandler {
 	return &GolinkHandler{
 		linkMap: linkMapPtr,
 	}
+}
+
+func NewGoLinkService(service *echo.Echo, cfg *config.Config) {
+	linkMap := links.NewLinkMap(cfg.StorageType, cfg.ConfigFile)
+	apiRouter := service.Group("/api/v1")
+	{
+		apiRouter.GET("/all")
+	}
+	frontendRouter := service.Group("/")
 }
 
 // ServeHTTP handles the base logic of handling http requests for the GolinkHandler

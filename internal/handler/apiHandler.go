@@ -2,7 +2,10 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
+	"github.com/dfryer1193/golinks/internal/links"
 	"github.com/dfryer1193/golinks/internal/search"
+	"github.com/labstack/echo/v4"
 	"net/http"
 	"net/url"
 	"strings"
@@ -35,6 +38,15 @@ type alfredItem struct {
 
 type alfredResponse struct {
 	Items []alfredItem `json:"items"`
+}
+
+type ApiHandler struct {
+	linkMap *links.LinkMap
+}
+
+func NewApiHandler(router *echo.Group, linkMap *links.LinkMap) {
+	apiHandler := &ApiHandler{linkMap: linkMap}
+	router.GET("/all", apiHandler.getAll)
 }
 
 const apiPath = "/api/v1/"
@@ -137,20 +149,27 @@ func (h *GolinkHandler) handleApiDelete(w http.ResponseWriter, strippedPath stri
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (h *GolinkHandler) getAll(w http.ResponseWriter) {
-	err := json.NewEncoder(w).Encode(h.linkMap.GetAll())
+func (h *ApiHandler) getAll(ctx echo.Context) error {
+	allLinks := h.linkMap.GetAll()
+	err := ctx.JSON(http.StatusOK, allLinks)
 	if err != nil {
-		http.Error(w, "Error encoding JSON", http.StatusInternalServerError)
-		log.Err(err).Msg("Error encoding link map to JSON")
-		return
+		return err
 	}
+
+	return nil
 }
 
-func (h *GolinkHandler) getAllForAlfred(w http.ResponseWriter) {
-	sendAlfredResponse(w, h.linkMap.GetAll())
+func (h *ApiHandler) getAllForAlfred(ctx echo.Context) error {
+	alfredResponse := buildAlfredResponse(h.linkMap.GetAll())
+
+	if err := ctx.JSON(http.StatusOK, alfredResponse); err != nil {
+		return err
+	}
+
+	return nil
 }
 
-func (h *GolinkHandler) get(w http.ResponseWriter, strippedPath string) {
+func (h *ApiHandler) get(w http.ResponseWriter, strippedPath string) {
 	target, exists := h.linkMap.Get(strippedPath)
 	if !exists {
 		w.WriteHeader(http.StatusNotFound)
@@ -220,7 +239,7 @@ func getBody(req *http.Request) (*linkTarget, error) {
 	return &body, nil
 }
 
-func sendAlfredResponse(w http.ResponseWriter, mapItems map[string]string) {
+func buildAlfredResponse(mapItems map[string]string) *alfredResponse {
 	items := make([]alfredItem, len(mapItems))
 	for key, val := range mapItems {
 		item := alfredItem{
@@ -233,21 +252,7 @@ func sendAlfredResponse(w http.ResponseWriter, mapItems map[string]string) {
 		items = append(items, item)
 	}
 
-	r := alfredResponse{
+	return &alfredResponse{
 		Items: items,
-	}
-
-	jsonBytes, err := json.Marshal(r)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		log.Err(err).Msg("Error encoding JSON")
-		return
-	}
-
-	_, err = w.Write(jsonBytes)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		log.Err(err).Msg("Error writing response body")
-		return
 	}
 }
