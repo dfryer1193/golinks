@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Create New Shortcut</title>
-    <link rel="stylesheet" href="static/styles.css">
+    <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@400;700&display=swap">
 </head>
 <body>
@@ -33,7 +33,7 @@
 </div>
 
 <script>
-    const apiPath = "/api/v1"
+    const apiPath = "/api/v1/links"
     document.addEventListener('DOMContentLoaded', function() {
         const queryParams = new URLSearchParams(window.location.search);
         const preFilledPathQueryParam = queryParams.get('path');
@@ -77,8 +77,13 @@
                 },
                 body: JSON.stringify(data)
             })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Failed to create shortcut');
+                })
                 .then(response => {
                     if (!response.ok) {
+                        response.text().then(text => console.log(text));
                         throw new Error('Network response was not ok');
                     }
                     return response.json();

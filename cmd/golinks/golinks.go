@@ -3,19 +3,14 @@ package main
 import (
 	"fmt"
 	"github.com/dfryer1193/golinks/config"
+	"github.com/dfryer1193/golinks/internal/handler"
+	"github.com/dfryer1193/mjolnir/router"
 	"net/http"
 	"os"
 	"time"
 
-	"github.com/dfryer1193/golinks/internal/links/storage"
-
-	"github.com/dfryer1193/golinks/internal/handler"
-	"github.com/dfryer1193/golinks/internal/links"
-	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"github.com/ziflex/lecho/v3"
 )
 
 func main() {
@@ -27,15 +22,11 @@ func main() {
 	log.Logger = logger
 	zerolog.SetGlobalLevel(cfg.LogLevel)
 
-	service := echo.New()
-	service.Logger = lecho.From(logger)
-	service.Use(middleware.Logger())
-	if err := service.Start(fmt.Sprintf(":%d", cfg.Port)); err != nil {
-		log.Fatal().Err(err)
-	}
+	r := router.New()
+	handler.NewGoLinkService(r, cfg)
 
-	redirector := handler.NewGoLinkService(links.NewLinkMap(storageType, configFile))
-	if err := http.ListenAndServe(fmt.Sprintf(":%d", port), redirector); err != nil {
+	log.Info().Msg("Starting server on port :" + fmt.Sprint(cfg.Port))
+	if err := http.ListenAndServe(fmt.Sprintf(":%d", cfg.Port), r); err != nil {
 		log.Fatal().Err(err)
 	}
 }

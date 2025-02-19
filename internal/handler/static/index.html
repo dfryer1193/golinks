@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Go/Links</title>
-    <link rel="stylesheet" href="static/styles.css">
+    <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@400;700&display=swap">
 </head>
 <body>
@@ -112,7 +112,7 @@
         redirectsTableBody.addEventListener('click', function(event) {
             if (event.target.classList.contains('delete-button')) {
                 const id = event.target.getAttribute('data-id');
-                fetch(apiPath + `/${id}`, {
+                fetch(apiPath + `/links/${id}`, {
                     method: 'DELETE',
                 }).then(() => {
                     alert('Shortcut deleted successfully');

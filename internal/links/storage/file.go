@@ -259,7 +259,7 @@ func (f *FileStorage) updateEntry(key string, target string) (bool, error) {
 	scanner := bufio.NewScanner(curFile)
 	for scanner.Scan() {
 		txt := scanner.Text()
-		// Key exists somewhere in the file
+		// Path exists somewhere in the file
 		if strings.HasPrefix(txt, key+" ") {
 			if target == "" {
 				changed = true
@@ -278,7 +278,7 @@ func (f *FileStorage) updateEntry(key string, target string) (bool, error) {
 			continue
 		}
 
-		// Key does not exist in the file and we're not deleting
+		// Path does not exist in the file and we're not deleting
 		if target != "" {
 			_, err := newFile.WriteString(txt + "\n")
 			if err != nil {

@@ -2,69 +2,59 @@ package handler
 
 import (
 	"github.com/dfryer1193/golinks/config"
-	"github.com/gin-gonic/gin"
-	"github.com/labstack/echo/v4"
-	"net/http"
-	"strings"
-
 	"github.com/dfryer1193/golinks/internal/links"
+	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
+	"net/http"
 )
 
 // GolinkHandler handles all incoming/outgoing http requests for go links.
 type GolinkHandler struct {
-	linkMap *links.LinkMap
+	linkMap    *links.LinkMap
+	apiHandler *ApiHandler
+	feHandler  *FeHandler
 }
 
 // NewGoLinkService returns a reference to a new instance of a GolinkHandler
-func NewGoLinkService(linkMapPtr *links.LinkMap) *GolinkHandler {
-	return &GolinkHandler{
-		linkMap: linkMapPtr,
-	}
-}
-
-func NewGoLinkService(service *echo.Echo, cfg *config.Config) {
+func NewGoLinkService(router *chi.Mux, cfg *config.Config) {
 	linkMap := links.NewLinkMap(cfg.StorageType, cfg.ConfigFile)
-	apiRouter := service.Group("/api/v1")
-	{
-		apiRouter.GET("/all")
+	apiHandler := NewApiHandler(linkMap)
+	feHandler := NewFeHandler()
+	service := &GolinkHandler{
+		linkMap:    linkMap,
+		apiHandler: apiHandler,
+		feHandler:  feHandler,
 	}
-	frontendRouter := service.Group("/")
+
+	router.Route("/api/v1", func(r chi.Router) {
+		r.Get("/all", apiHandler.getAll)
+		r.Get("/all/alfred", apiHandler.getAllForAlfred)
+		r.Get("/search", apiHandler.search)
+		r.Get("/links/{path}", apiHandler.getLink)
+		r.Post("/links/{path}", apiHandler.postLink)
+		r.Delete("/links/{path}", apiHandler.deleteLink)
+	})
+
+	router.Route("/", func(r chi.Router) {
+		r.Use(noCacheMiddleware)
+		r.Get("/", feHandler.serveHomepage)
+		r.Get("/favicon.ico", feHandler.serveFavicon)
+		r.Get("/styles.css", feHandler.serveStyles)
+		r.Get("/update", feHandler.serveNewForm)
+		r.Get("/{path}", service.handleGet)
+	})
 }
 
-// ServeHTTP handles the base logic of handling http requests for the GolinkHandler
-func (h *GolinkHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	log.Info().Msg(req.Method + " " + req.URL.Path)
-	log.Debug().Msg(req.Method + " " + req.Host)
-
-	if strings.HasPrefix(req.URL.Path, apiPath) {
-		h.handleV1ApiRequest(w, req)
-		return
-	}
-
-	if feHandlerFunc, exists := h.getServedFePaths()[req.URL.Path]; exists {
-		feHandlerFunc(w)
-		return
-	}
-
-	switch req.Method {
-	case http.MethodGet:
-		h.handleGet(w, req)
-	default:
-		w.WriteHeader(http.StatusMethodNotAllowed)
-	}
-}
-
-func (h *GolinkHandler) handleGet(w http.ResponseWriter, req *http.Request) {
-	path := strings.TrimSuffix(strings.TrimPrefix(req.URL.Path, "/"), "/") // Disallow trailing slashes
+func (h *GolinkHandler) handleGet(w http.ResponseWriter, r *http.Request) {
+	path := chi.URLParam(r, "path")
 
 	target, exists := h.linkMap.Get(path)
 
 	if exists {
 		log.Debug().Str("target", target).Msg("Shortcut found! Redirecting...")
-		http.Redirect(w, req, target, http.StatusTemporaryRedirect)
+		http.Redirect(w, r, target, http.StatusTemporaryRedirect)
 		return
 	}
 
-	h.serveNewForm(w)
+	h.feHandler.serveNewForm(w, r)
 }
