@@ -3,7 +3,7 @@ module github.com/dfryer1193/golinks
 go 1.23.6
 
 require (
-	github.com/dfryer1193/mjolnir v0.0.3
+	github.com/dfryer1193/mjolnir v0.0.4
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/go-chi/chi/v5 v5.2.1
 	github.com/rs/zerolog v1.33.0
