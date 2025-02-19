@@ -1,20 +1,20 @@
-package main
+package config
 
 import (
 	"flag"
 	"fmt"
-	"net/http"
+	"github.com/dfryer1193/golinks/internal/links/storage"
+	"github.com/rs/zerolog"
 	"os"
 	"strings"
-	"time"
-
-	"github.com/dfryer1193/golinks/internal/links/storage"
-
-	"github.com/dfryer1193/golinks/internal/handler"
-	"github.com/dfryer1193/golinks/internal/links"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 )
+
+type Config struct {
+	Port        int
+	StorageType storage.StorageType
+	ConfigFile  string
+	LogLevel    zerolog.Level
+}
 
 func help() {
 	helptext :=
@@ -55,36 +55,6 @@ respected, though full paths are.`
 	os.Exit(0)
 }
 
-func main() {
-	var port int
-	var storageTypeString string
-	var configFile string
-	var stringLogLevel string
-	flag.IntVar(&port, "port", 8080, "The port to listen on")
-	flag.StringVar(&storageTypeString, "storage", "FILE", "The type of storage to use for persistence")
-	flag.StringVar(&configFile, "config", "", "Location of the config file. Ignored if storageType is 'NONE'")
-	flag.StringVar(&stringLogLevel, "level", "INFO", "The level to log at")
-	flag.Usage = help
-
-	flag.Parse()
-
-	log.Logger = log.Output(zerolog.ConsoleWriter{
-		Out:        os.Stdout,
-		TimeFormat: time.RFC3339Nano,
-	})
-	level := getLevelFromArg(stringLogLevel)
-	log.Info().Str("loglevel", level.String()).Msg("Setting log level...")
-	zerolog.SetGlobalLevel(level)
-	storageType := storage.FromString(storageTypeString)
-
-	log.Info().Int("port", port).Msg("Starting http server")
-
-	redirector := handler.NewGolinkHandler(links.NewLinkMap(storageType, configFile))
-	if err := http.ListenAndServe(fmt.Sprintf(":%d", port), redirector); err != nil {
-		log.Fatal().Err(err)
-	}
-}
-
 func getLevelFromArg(arg string) zerolog.Level {
 	switch strings.ToUpper(arg) {
 	case "TRACE":
@@ -103,5 +73,26 @@ func getLevelFromArg(arg string) zerolog.Level {
 		return zerolog.PanicLevel
 	default:
 		return zerolog.InfoLevel
+	}
+}
+
+func GetConfig() *Config {
+	var port int
+	var storageTypeString string
+	var configFile string
+	var stringLogLevel string
+	flag.IntVar(&port, "port", 8080, "The port to listen on")
+	flag.StringVar(&storageTypeString, "storage", "FILE", "The type of storage to use for persistence")
+	flag.StringVar(&configFile, "config", "", "Location of the config file. Ignored if storageType is 'NONE'")
+	flag.StringVar(&stringLogLevel, "level", "INFO", "The level to log at")
+	flag.Usage = help
+
+	flag.Parse()
+
+	return &Config{
+		Port:        port,
+		StorageType: storage.FromString(storageTypeString),
+		ConfigFile:  configFile,
+		LogLevel:    getLevelFromArg(stringLogLevel),
 	}
 }

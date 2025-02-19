@@ -2,7 +2,11 @@ package handler
 
 import (
 	"embed"
+	"fmt"
+	"github.com/dfryer1193/mjolnir/middleware"
 	"net/http"
+	"os"
+	"path/filepath"
 
 	"github.com/rs/zerolog/log"
 )
@@ -10,73 +14,53 @@ import (
 //go:embed static/*
 var content embed.FS
 
-const embedDir = "static/"
-const list = embedDir + "index.html"
-const css = embedDir + "styles.css"
-const newLink = embedDir + "new.html"
-const favicon = embedDir + "favicon.ico"
+const embedDir = "./internal/handler/static/"
 
-func (h *GolinkHandler) getServedFePaths() map[string]func(w http.ResponseWriter) {
-	return map[string]func(w http.ResponseWriter){
-		"/":                  h.serveList,
-		"/favicon.ico":       h.serveFavicon,
-		"/static/styles.css": h.serveStyles,
-		"/static/update":     h.serveNewForm,
-		"/static/index.html": h.serveList,
-		"/static/new.html":   h.serveNewForm,
+type FeHandler struct {
+	EmbeddedRoot string
+}
+
+func NewFeHandler() *FeHandler {
+	root, _ := filepath.Abs(embedDir)
+	log.Debug().Str("root", root).Msg("Embedded root")
+	if _, err := os.Stat(root); os.IsNotExist(err) {
+		log.Fatal().Msg("Failed to find embedded static directory")
+	}
+
+	return &FeHandler{
+		EmbeddedRoot: root,
 	}
 }
 
-func (h *GolinkHandler) serveList(w http.ResponseWriter) {
-	serveEmbeddedHtml(list, w)
+func (h *FeHandler) serveHomepage(w http.ResponseWriter, r *http.Request) {
+	if _, err := os.Stat(h.EmbeddedRoot + "/index.html"); os.IsNotExist(err) {
+		middleware.SetError(r, http.StatusInternalServerError, fmt.Errorf("embedded index.html not found"))
+		return
+	}
+	http.ServeFile(w, r, h.EmbeddedRoot+"/index.html")
 }
 
-func (h *GolinkHandler) serveStyles(w http.ResponseWriter) {
-	cssBytes, err := content.ReadFile(css)
-	if err != nil {
-		http.Error(w, "Error reading styles.css", http.StatusInternalServerError)
-		log.Err(err).Msg("Error reading embedded styles.css")
+func (h *FeHandler) serveFavicon(w http.ResponseWriter, r *http.Request) {
+	if _, err := os.Stat(h.EmbeddedRoot + "/favicon.ico"); os.IsNotExist(err) {
+		middleware.SetError(r, http.StatusInternalServerError, fmt.Errorf("embedded favicon not found"))
+		return
+	}
+	http.ServeFile(w, r, h.EmbeddedRoot+"/favicon.ico")
+}
+
+func (h *FeHandler) serveStyles(w http.ResponseWriter, r *http.Request) {
+	if _, err := os.Stat(h.EmbeddedRoot + "/styles.css"); os.IsNotExist(err) {
+		middleware.SetError(r, http.StatusInternalServerError, fmt.Errorf("embedded styles.css not found"))
+		return
+	}
+	http.ServeFile(w, r, h.EmbeddedRoot+"/styles.css")
+}
+
+func (h *FeHandler) serveNewForm(w http.ResponseWriter, r *http.Request) {
+	if _, err := os.Stat(h.EmbeddedRoot + "/new.html"); os.IsNotExist(err) {
+		middleware.SetError(r, http.StatusInternalServerError, fmt.Errorf("embedded new.html not found"))
 		return
 	}
 
-	w.Header().Set("Content-Type", "text/css")
-
-	_, err = w.Write(cssBytes)
-	if err != nil {
-		http.Error(w, "Error writing response", http.StatusInternalServerError)
-		log.Err(err).Msg("Error writing css response")
-	}
-}
-
-func (h *GolinkHandler) serveNewForm(w http.ResponseWriter) {
-	serveEmbeddedHtml(newLink, w)
-}
-
-func (h *GolinkHandler) serveFavicon(w http.ResponseWriter) {
-	iconBytes, err := content.ReadFile(favicon)
-	if err != nil {
-		http.Error(w, "Error serving favicon", http.StatusInternalServerError)
-		log.Err(err).Msg("Error reading embedded favicon")
-	}
-
-	_, err = w.Write(iconBytes)
-	if err != nil {
-		http.Error(w, "Error writing favicon", http.StatusInternalServerError)
-		log.Err(err).Msg("Error writing favicon to response")
-	}
-}
-
-func serveEmbeddedHtml(filename string, w http.ResponseWriter) {
-	htmlBytes, err := content.ReadFile(filename)
-	if err != nil {
-		http.Error(w, "Error reading index.html", http.StatusInternalServerError)
-		log.Err(err).Msg("Error reading embedded index.html")
-		return
-	}
-
-	_, err = w.Write(htmlBytes)
-	if err != nil {
-		http.Error(w, "Error writing response", http.StatusInternalServerError)
-		log.Err(err).Msg("Error writing html response")
-	}
+	http.ServeFile(w, r, h.EmbeddedRoot+"/new.html")
 }
