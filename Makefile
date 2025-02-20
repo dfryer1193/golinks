@@ -1,6 +1,6 @@
 # Define variables
 IMAGE_NAME := decahedra/golinks
-TAG := latest
+TAG := $(shell git describe --tags $(shell git rev-list --tags --max-count=1))
 ARCHS := amd64 arm64
 REGISTRY := docker.io
 
@@ -31,6 +31,9 @@ clean:
 list:
 	@echo "Listing Docker images"
 	docker images | grep $(IMAGE_NAME)
+
+show-tag:
+	@echo "Current tag: $(TAG)"
 
 # Print help
 help:

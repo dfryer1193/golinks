@@ -7,6 +7,7 @@ RUN go mod download
 COPY . .
 
 RUN go build -o golinks
+
 FROM alpine:3.18
 ENV PORT=8080
 EXPOSE $PORT
