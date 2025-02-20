@@ -3,6 +3,7 @@ IMAGE_NAME := decahedra/golinks
 TAG := $(shell git describe --tags $(shell git rev-list --tags --max-count=1))
 ARCHS := amd64 arm64
 REGISTRY := docker.io
+CURRENT_ARCH := $(shell uname -m | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/')
 
 # Define targets
 all: build manifest push
@@ -28,12 +29,20 @@ clean:
 		docker rmi $(IMAGE_NAME):$(TAG)-$(arch);)
 	docker manifest rm $(IMAGE_NAME):$(TAG)
 
+run: build
+	@echo "Running golinks container..."
+	@mkdir -p /tmp/golinks-config
+	@[ -f /tmp/golinks-config/links ] || touch /tmp/golinks-config/links
+	@docker run --rm \
+		--name golinks \
+		-p 8080:8080 \
+		-v /tmp/golinks-config:/config:rw \
+		localhost/$(IMAGE_NAME):$(TAG)-$(CURRENT_ARCH)
+	@echo "Golinks is running on http://localhost:8080"
+
 list:
 	@echo "Listing Docker images"
 	docker images | grep $(IMAGE_NAME)
-
-show-tag:
-	@echo "Current tag: $(TAG)"
 
 # Print help
 help:
@@ -44,4 +53,5 @@ help:
 	@echo "  make push      - Push Docker images to registry"
 	@echo "  make clean     - Remove local Docker images"
 	@echo "  make list      - List Docker images"
+	@echo "  make run       - Run golinks container (Ctrl+C to stop)"
 	@echo "  make help      - Show this help message"

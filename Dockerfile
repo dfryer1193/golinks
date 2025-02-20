@@ -6,7 +6,7 @@ RUN go mod download
 
 COPY . .
 
-RUN go build -o golinks
+RUN go build -o golinks cmd/golinks/golinks.go
 
 FROM alpine:3.18
 ENV PORT=8080
