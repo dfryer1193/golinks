@@ -1,28 +1,16 @@
 package handler
 
 import (
-	"encoding/json"
+	"fmt"
+	"github.com/dfryer1193/golinks/internal/links"
 	"github.com/dfryer1193/golinks/internal/search"
+	"github.com/dfryer1193/golinks/models"
+	"github.com/dfryer1193/mjolnir/middleware"
+	"github.com/dfryer1193/mjolnir/utils"
+	"github.com/go-chi/chi/v5"
 	"net/http"
 	"net/url"
-	"strings"
-
-	"github.com/rs/zerolog/log"
 )
-
-type linkTarget struct {
-	Target string `json:"target"`
-}
-
-type pathAndTarget struct {
-	Path   string `json:"path"`
-	Target string `json:"target"`
-}
-
-type targetUpdate struct {
-	Old *pathAndTarget `json:"old"`
-	New *pathAndTarget `json:"new"`
-}
 
 type alfredItem struct {
 	Uid          string `json:"uid"`
@@ -37,141 +25,97 @@ type alfredResponse struct {
 	Items []alfredItem `json:"items"`
 }
 
-const apiPath = "/api/v1/"
-
-func (h *GolinkHandler) handleV1ApiRequest(w http.ResponseWriter, r *http.Request) {
-	strippedPath := strings.TrimPrefix(r.URL.Path, apiPath)
-	log.Debug().Str("path", r.URL.Path).Str("strippedPath", strippedPath).Msg("Handling ")
-	switch r.Method {
-	case http.MethodGet:
-		h.handleApiGet(w, r, strippedPath)
-	case http.MethodPost:
-		h.handleApiPost(w, r)
-	case http.MethodDelete:
-		h.handleApiDelete(w, strippedPath)
-	default:
-		w.WriteHeader(http.StatusMethodNotAllowed)
-	}
+type ApiHandler struct {
+	linkMap *links.LinkMap
 }
 
-func (h *GolinkHandler) handleApiGet(w http.ResponseWriter, r *http.Request, strippedPath string) {
-	if strippedPath == "all" {
-		log.Debug().Msg("Getting all entries...")
-		h.getAll(w)
-		return
-	} else if strippedPath == "all/alfred" {
-		log.Debug().Msg("Getting all entries with alfred item formatting...")
-		h.getAllForAlfred(w)
-		return
-	} else if strippedPath == "search" {
-		log.Debug().Msg("Getting search results...")
-		h.search(w, r)
-		return
-	}
-
-	h.get(w, strippedPath)
+func NewApiHandler(linkMap *links.LinkMap) *ApiHandler {
+	return &ApiHandler{linkMap: linkMap}
 }
 
-func (h *GolinkHandler) handleApiPost(w http.ResponseWriter, r *http.Request) {
-	var oldPathAndTarget *pathAndTarget
-	path, target, err := extractPathAndTarget(r)
+func (h *ApiHandler) postLink(w http.ResponseWriter, r *http.Request) {
+	path := chi.URLParam(r, "path")
+	target := &struct {
+		Target string `json:"target"`
+	}{}
+	err := utils.DecodeJSON(r, target)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
+		middleware.SetError(r, http.StatusBadRequest, fmt.Errorf("invalid target: %w", err))
+		return
+	}
+	newEntry := &models.Entry{
+		Path:   path,
+		Target: target.Target,
+	}
+
+	targetUrl, err := url.Parse(target.Target)
+	if err != nil {
+		middleware.SetError(r, http.StatusBadRequest, fmt.Errorf("target %s is not a valid url", target.Target))
 		return
 	}
 
-	if target == nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
+	var oldEntry *models.Entry
 	oldTarget, exists := h.linkMap.Get(path)
 	if exists { //TODO: Move this check inside the LinkMap, return delta from update fn
-		oldPathAndTarget = &pathAndTarget{
+		oldEntry = &models.Entry{
 			Path:   path,
 			Target: oldTarget,
 		}
 
-		err := h.linkMap.Update(path, target)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			log.Fatal().Err(err).Msg("Encountered an error writing config")
+		if err := h.linkMap.Update(newEntry.Path, targetUrl); err != nil {
+			middleware.SetError(r, http.StatusInternalServerError, fmt.Errorf("error updating link %s: %w", newEntry.Path, err))
+			return
 		}
 	} else {
-		err = h.linkMap.Put(path, target)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			log.Fatal().Err(err).Msg("Encountered an error writing config")
+		if err := h.linkMap.Put(path, targetUrl); err != nil {
+			middleware.SetError(r, http.StatusInternalServerError, fmt.Errorf("error adding link %s: %w", newEntry.Path, err))
+			return
 		}
 	}
 
-	update := targetUpdate{
-		Old: oldPathAndTarget,
-		New: &pathAndTarget{
-			Path:   path,
-			Target: target.String(),
-		},
+	update := models.UpdateDelta{
+		Old: oldEntry,
+		New: newEntry,
 	}
 
-	responseBytes, err := json.Marshal(update)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-
-		return
-	}
-
-	_, err = w.Write(responseBytes)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
+	utils.RespondJSON(w, r, http.StatusOK, update)
 }
 
-func (h *GolinkHandler) handleApiDelete(w http.ResponseWriter, strippedPath string) {
-	err := h.linkMap.Delete(strippedPath)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+func (h *ApiHandler) deleteLink(w http.ResponseWriter, r *http.Request) {
+	path := chi.URLParam(r, "path")
+	if err := h.linkMap.Delete(path); err != nil {
+		middleware.SetError(r, http.StatusInternalServerError, fmt.Errorf("error deleting link %s: %w", path, err))
 		return
 	}
 
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (h *GolinkHandler) getAll(w http.ResponseWriter) {
-	err := json.NewEncoder(w).Encode(h.linkMap.GetAll())
-	if err != nil {
-		http.Error(w, "Error encoding JSON", http.StatusInternalServerError)
-		log.Err(err).Msg("Error encoding link map to JSON")
-		return
-	}
+func (h *ApiHandler) getAll(w http.ResponseWriter, r *http.Request) {
+	allLinks := h.linkMap.GetAll()
+	utils.RespondJSON(w, r, http.StatusOK, allLinks)
 }
 
-func (h *GolinkHandler) getAllForAlfred(w http.ResponseWriter) {
-	sendAlfredResponse(w, h.linkMap.GetAll())
+func (h *ApiHandler) getAllForAlfred(w http.ResponseWriter, r *http.Request) {
+	alfredResponse := buildAlfredResponse(h.linkMap.GetAll())
+	utils.RespondJSON(w, r, http.StatusOK, alfredResponse)
 }
 
-func (h *GolinkHandler) get(w http.ResponseWriter, strippedPath string) {
-	target, exists := h.linkMap.Get(strippedPath)
+func (h *ApiHandler) getLink(w http.ResponseWriter, r *http.Request) {
+	path := chi.URLParam(r, "path")
+	target, exists := h.linkMap.Get(path)
 	if !exists {
-		w.WriteHeader(http.StatusNotFound)
-	}
-
-	jsonBytes, err := json.Marshal(target)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		log.Err(err).Msg("Error encoding JSON")
+		middleware.SetError(r, http.StatusNotFound, fmt.Errorf("path %s has no target", path))
 		return
 	}
 
-	_, err = w.Write(jsonBytes)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		log.Err(err).Msg("Error writing response body")
-		return
-	}
+	utils.RespondJSON(w, r, http.StatusOK, models.Entry{
+		Path:   path,
+		Target: target,
+	})
 }
 
-func (h *GolinkHandler) search(w http.ResponseWriter, r *http.Request) {
+func (h *ApiHandler) search(w http.ResponseWriter, r *http.Request) {
 	options := h.linkMap.GetAllKeys()
 	query := r.URL.Query().Get("query")
 	isAlfredRequest := r.URL.Query().Get("isAlfred") == "true"
@@ -184,43 +128,15 @@ func (h *GolinkHandler) search(w http.ResponseWriter, r *http.Request) {
 	hitMap := h.linkMap.GetFiltered(keyHits)
 
 	if isAlfredRequest {
-		sendAlfredResponse(w, hitMap)
-	}
-
-	err := json.NewEncoder(w).Encode(hitMap)
-	if err != nil {
-		http.Error(w, "Error encoding JSON", http.StatusInternalServerError)
-		log.Err(err).Msg("Error encoding link map to JSON")
+		resp := buildAlfredResponse(hitMap)
+		utils.RespondJSON(w, r, http.StatusOK, resp)
 		return
 	}
+
+	utils.RespondJSON(w, r, http.StatusOK, hitMap)
 }
 
-func extractPathAndTarget(req *http.Request) (string, *url.URL, error) {
-	path := strings.TrimSuffix(strings.TrimPrefix(req.URL.Path, apiPath), "/") // Don't allow trailing slashes for shortcuts
-	target, err := getBody(req)
-	if err != nil {
-		return "", nil, err
-	}
-
-	targetURL, err := url.Parse(target.Target)
-	if err != nil {
-		return "", nil, err
-	}
-
-	return path, targetURL, nil
-}
-
-func getBody(req *http.Request) (*linkTarget, error) {
-	var body linkTarget
-	err := json.NewDecoder(req.Body).Decode(&body)
-	if err != nil {
-		return nil, err
-	}
-
-	return &body, nil
-}
-
-func sendAlfredResponse(w http.ResponseWriter, mapItems map[string]string) {
+func buildAlfredResponse(mapItems map[string]string) *alfredResponse {
 	items := make([]alfredItem, len(mapItems))
 	for key, val := range mapItems {
 		item := alfredItem{
@@ -233,21 +149,7 @@ func sendAlfredResponse(w http.ResponseWriter, mapItems map[string]string) {
 		items = append(items, item)
 	}
 
-	r := alfredResponse{
+	return &alfredResponse{
 		Items: items,
-	}
-
-	jsonBytes, err := json.Marshal(r)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		log.Err(err).Msg("Error encoding JSON")
-		return
-	}
-
-	_, err = w.Write(jsonBytes)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		log.Err(err).Msg("Error writing response body")
-		return
 	}
 }

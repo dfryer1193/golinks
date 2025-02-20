@@ -53,9 +53,7 @@ func (f *FileStorage) watchConfig() {
 			if !ok {
 				return
 			}
-			log.Debug().Msg("File watch event received!")
 			if filepath.Base(event.Name) == name && (event.Has(fsnotify.Write) || event.Has(fsnotify.Create)) {
-				log.Debug().Msg("Config file updated, reloading...")
 				f.reloadChannel <- true
 			}
 		case err, ok := <-f.watcher.Errors:
@@ -196,7 +194,7 @@ func (f *FileStorage) Put(key string, target string) {
 }
 
 func (f *FileStorage) Delete(key string) {
-	err := f.updateEntry(key, "")
+	changed, err := f.updateEntry(key, "")
 	if err != nil {
 		log.
 			Error().
@@ -204,10 +202,21 @@ func (f *FileStorage) Delete(key string) {
 			Str("key", key).
 			Msg("Failed to delete key")
 	}
+
+	if changed {
+		err = f.replaceConfigInPlace()
+		if err != nil {
+			log.
+				Error().
+				Err(err).
+				Str("key", key).
+				Msg("Failed to replace config file in place after delete")
+		}
+	}
 }
 
 func (f *FileStorage) Update(key string, target string) {
-	err := f.updateEntry(key, target)
+	changed, err := f.updateEntry(key, target)
 	if err != nil {
 		log.
 			Error().
@@ -216,44 +225,70 @@ func (f *FileStorage) Update(key string, target string) {
 			Str("target", target).
 			Msg("Failed to update key")
 	}
+
+	if changed {
+		err = f.replaceConfigInPlace()
+		if err != nil {
+			log.
+				Error().
+				Err(err).
+				Str("key", key).
+				Str("target", target).
+				Msg("Failed to replace config file in place after update")
+		}
+	}
 }
 
-func (f *FileStorage) updateEntry(key string, target string) error {
+func (f *FileStorage) updateEntry(key string, target string) (bool, error) {
 	f.fileLock.Lock()
+	defer f.fileLock.Unlock()
 
 	curFile, err := os.OpenFile(f.configPath, os.O_RDONLY, 0600)
 	if err != nil {
-		return err
+		return false, err
 	}
+	defer curFile.Close()
 
 	newFile, err := os.OpenFile(f.getScratchConfigFilepath(), os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
 	if err != nil {
-		return err
+		return false, err
 	}
+	defer newFile.Close()
 
+	var changed = false
 	scanner := bufio.NewScanner(curFile)
 	for scanner.Scan() {
 		txt := scanner.Text()
+		// Path exists somewhere in the file
 		if strings.HasPrefix(txt, key+" ") {
 			if target == "" {
+				changed = true
 				continue
 			}
-			if _, err := newFile.WriteString(key + " " + target + "\n"); err != nil {
-				return err
+
+			existingTarget := strings.Split(txt, " ")[1]
+			if target == existingTarget {
+				continue
 			}
+
+			if _, err := newFile.WriteString(key + " " + target + "\n"); err != nil {
+				return false, err
+			}
+			changed = true
 			continue
 		}
-		_, err := newFile.WriteString(txt + "\n")
-		if err != nil {
-			fmt.Println(err)
-			return err
+
+		// Path does not exist in the file and we're not deleting
+		if target != "" {
+			_, err := newFile.WriteString(txt + "\n")
+			if err != nil {
+				fmt.Println(err)
+				return false, err
+			}
 		}
 	}
-	curFile.Close()
-	newFile.Close()
-	f.fileLock.Unlock()
 
-	return nil
+	return changed, nil
 }
 
 func (f *FileStorage) getScratchConfigFilepath() string {
