@@ -1,6 +1,5 @@
 github.com/coreos/go-systemd/v22 v22.5.0/go.mod h1:Y58oyj3AT4RCenI/lSvhwexgC+NSVTIJ3seZv2GcEnc=
-github.com/dfryer1193/mjolnir v0.0.4 h1:QYPsuGB6AG2fbl/l5uZYLUwbWgseZaAIXgWew4vbOJ0=
-github.com/dfryer1193/mjolnir v0.0.4/go.mod h1:dItFbgr0SVHyU6BkXKLgavFKszat0ZXgefRPmOtg9/8=
+github.com/dfryer1193/mjolnir v1.0.2 h1:wqpIST2cj0XDxzCph6FRq1kSChC3r57JOxzHv4QurSw=
 github.com/dfryer1193/mjolnir v1.0.2/go.mod h1:ZzUyzMZQyE0skFH2WG4zFljhHxlQFyVcL1X626A5MYI=
 github.com/fsnotify/fsnotify v1.7.0 h1:8JEhPFa5W2WU7YfeZzPNqzMP6Lwt7L2715Ggo0nosvA=
 github.com/fsnotify/fsnotify v1.7.0/go.mod h1:40Bi/Hjc2AVfZrqy+aj+yEI+/bRxZnMJyTJwOpGvigM=
