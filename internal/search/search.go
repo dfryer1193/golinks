@@ -1,8 +1,6 @@
 package search
 
-import (
-	"slices"
-)
+import "slices"
 
 const shortcutEditThreshold = 3
 
