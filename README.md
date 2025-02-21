@@ -9,7 +9,15 @@
 # golinks
 A simple, self-hosted golinks implementation
 
-## Usage
+## What are golinks?
+Go links (or golinks or go/links) are browser-based redirects allowing mnemonic bookmarks or shortcuts. To use them, navigate to `http://go/<shortcut>`
+
+For example, to get to reddit, I might set up the go/link `go/red`, which would redirect me to `https://reddit.com`.
+
+## Client Setup
+Users must visit `http://go` at least once before the browser will recognize the server as a valid address.
+
+## Server Usage
 ```
 golinks: a simple self-hosted implementation of go links for use in a self-
 hosted environment.
