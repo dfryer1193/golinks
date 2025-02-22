@@ -89,10 +89,16 @@ func GetConfig() *Config {
 
 	flag.Parse()
 
+	level, err := zerolog.ParseLevel(stringLogLevel)
+	if err != nil {
+		fmt.Println("Invalid log level")
+		os.Exit(1)
+	}
+
 	return &Config{
 		Port:        port,
 		StorageType: storage.FromString(storageTypeString),
 		ConfigFile:  configFile,
-		LogLevel:    getLevelFromArg(stringLogLevel),
+		LogLevel:    level,
 	}
 }
