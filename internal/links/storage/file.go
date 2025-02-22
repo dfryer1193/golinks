@@ -93,7 +93,7 @@ func findConfig(requestedConfig string) string {
 		}
 		file, err := openFile(config)
 		if err == nil { // Note the deviation from the standard err != nil
-			log.Info().Msg("Using config file " + config)
+			log.Info().Str("file", config).Msg("Found config")
 			file.Close()
 			return config
 		}
@@ -104,7 +104,7 @@ func findConfig(requestedConfig string) string {
 		log.Err(err)
 	}
 	log.Fatal().Msg("Failed to find any config")
-	panic(errs)
+	return ""
 }
 
 func openFile(path string) (*os.File, error) {
