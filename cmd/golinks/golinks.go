@@ -18,11 +18,6 @@ import (
 
 func main() {
 	cfg := config.GetConfig()
-	logger := log.Output(zerolog.ConsoleWriter{
-		Out:        os.Stdout,
-		TimeFormat: time.RFC3339Nano,
-	})
-	log.Logger = logger
 	zerolog.SetGlobalLevel(cfg.LogLevel)
 
 	r := router.New()
