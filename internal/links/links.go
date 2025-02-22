@@ -52,12 +52,9 @@ func (l *LinkMap) handleReload() {
 		return
 	}
 
-	for {
-		select {
-		case signal := <-reloadChannel:
-			if signal {
-				l.reload()
-			}
+	for signal := range reloadChannel {
+		if signal {
+			l.reload()
 		}
 	}
 }
