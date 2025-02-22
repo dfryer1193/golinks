@@ -10,20 +10,20 @@ import (
 
 // GolinkHandler handles all incoming/outgoing http requests for go links.
 type GolinkHandler struct {
-	linkMap    *links.LinkMap
-	apiHandler *ApiHandler
-	feHandler  *FeHandler
+	linkMap         *links.LinkMap
+	apiHandler      *ApiHandler
+	frontendHandler *FrontendHandler
 }
 
 // NewGoLinkService returns a reference to a new instance of a GolinkHandler
 func NewGoLinkService(router *chi.Mux, cfg *config.Config) {
 	linkMap := links.NewLinkMap(cfg.StorageType, cfg.ConfigFile)
 	apiHandler := NewApiHandler(linkMap)
-	feHandler := NewFeHandler()
+	frontendHandler := NewFrontendHandler()
 	service := &GolinkHandler{
-		linkMap:    linkMap,
-		apiHandler: apiHandler,
-		feHandler:  feHandler,
+		linkMap:         linkMap,
+		apiHandler:      apiHandler,
+		frontendHandler: frontendHandler,
 	}
 
 	router.Route("/api/v1", func(r chi.Router) {
@@ -37,10 +37,10 @@ func NewGoLinkService(router *chi.Mux, cfg *config.Config) {
 
 	router.Route("/", func(r chi.Router) {
 		r.Use(noCacheMiddleware)
-		r.Get("/", feHandler.serveHomepage)
-		r.Get("/favicon.ico", feHandler.serveFavicon)
-		r.Get("/styles.css", feHandler.serveStyles)
-		r.Get("/update", feHandler.serveNewForm)
+		r.Get("/", frontendHandler.serveHomepage)
+		r.Get("/favicon.ico", frontendHandler.serveFavicon)
+		r.Get("/styles.css", frontendHandler.serveStyles)
+		r.Get("/update", frontendHandler.serveNewForm)
 		r.Get("/{path}", service.handleGet)
 	})
 }
@@ -56,5 +56,5 @@ func (h *GolinkHandler) handleGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.feHandler.serveNewForm(w, r)
+	h.frontendHandler.serveNewForm(w, r)
 }

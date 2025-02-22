@@ -27,25 +27,25 @@ var staticContent = map[ContentName]string{
 	FAVICON: "static/favicon.ico",
 }
 
-type FeHandler struct{}
+type FrontendHandler struct{}
 
-func NewFeHandler() *FeHandler {
-	return &FeHandler{}
+func NewFrontendHandler() *FrontendHandler {
+	return &FrontendHandler{}
 }
 
-func (h *FeHandler) serveHomepage(w http.ResponseWriter, r *http.Request) {
+func (h *FrontendHandler) serveHomepage(w http.ResponseWriter, r *http.Request) {
 	serveEmbeddedContent(w, r, INDEX)
 }
 
-func (h *FeHandler) serveFavicon(w http.ResponseWriter, r *http.Request) {
+func (h *FrontendHandler) serveFavicon(w http.ResponseWriter, r *http.Request) {
 	serveEmbeddedContent(w, r, FAVICON)
 }
 
-func (h *FeHandler) serveStyles(w http.ResponseWriter, r *http.Request) {
+func (h *FrontendHandler) serveStyles(w http.ResponseWriter, r *http.Request) {
 	serveEmbeddedContent(w, r, STYLES)
 }
 
-func (h *FeHandler) serveNewForm(w http.ResponseWriter, r *http.Request) {
+func (h *FrontendHandler) serveNewForm(w http.ResponseWriter, r *http.Request) {
 	serveEmbeddedContent(w, r, NEW)
 }
 
