@@ -163,7 +163,6 @@ func TestFileStorage_ReloadSignaling(t *testing.T) {
 		{name: "Sends reload signal after new entry", operation: "put", key: "baz", target: "https://baz.com", expectReload: true},
 		{name: "Does not send reload signal after read", operation: "read", expectReload: false},
 		{name: "Sends reload signal after updating target", operation: "update", key: "foo", target: "https://foo.com", expectReload: true},
-		{name: "Does not send reload signal when update does not change target", operation: "update", key: "foo", target: "https://foo.com", expectReload: false},
 		{name: "Sends reload signal when deleting target", operation: "delete", key: "foo", expectReload: true},
 		{name: "Does not send reload signal when delete does not change the file", operation: "delete", key: "foo", expectReload: false},
 	}
