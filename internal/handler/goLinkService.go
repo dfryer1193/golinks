@@ -33,6 +33,7 @@ func NewGoLinkService(router *chi.Mux, cfg *config.Config) {
 		r.Get("/links/{path}", apiHandler.getLink)
 		r.Post("/links/{path}", apiHandler.postLink)
 		r.Delete("/links/{path}", apiHandler.deleteLink)
+		r.Get("/export", apiHandler.exportLinks)
 	})
 
 	router.Route("/", func(r chi.Router) {

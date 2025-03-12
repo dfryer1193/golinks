@@ -136,6 +136,20 @@ func (h *ApiHandler) search(w http.ResponseWriter, r *http.Request) {
 	utils.RespondJSON(w, r, http.StatusOK, hitMap)
 }
 
+func (h *ApiHandler) exportLinks(w http.ResponseWriter, r *http.Request) {
+	allLinks := h.linkMap.GetAll()
+
+	w.Header().Set("Content-Type", "text/plain")
+	w.Header().Set("Content-Disposition", "attachment; filename=links")
+
+	for path, target := range allLinks {
+		_, err := fmt.Fprintf(w, "%s %s\n", path, target)
+		if err != nil {
+			middleware.SetError(r, http.StatusInternalServerError, fmt.Errorf("error writing export file: %w", err))
+		}
+	}
+}
+
 func buildAlfredResponse(mapItems map[string]string) *alfredResponse {
 	items := make([]alfredItem, len(mapItems))
 	for key, val := range mapItems {
