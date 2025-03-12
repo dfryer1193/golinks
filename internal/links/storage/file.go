@@ -171,6 +171,7 @@ func (f *FileStorage) Put(key string, target string) {
 	defer f.fileLock.Unlock()
 
 	file, err := os.OpenFile(f.configPath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+	defer file.Close()
 	if err != nil {
 		log.
 			Error().
@@ -179,7 +180,6 @@ func (f *FileStorage) Put(key string, target string) {
 			Msg("Failed to open file for writing")
 		return
 	}
-	defer file.Close()
 
 	if _, err := file.WriteString(key + " " + target + "\n"); err != nil {
 		log.
@@ -190,7 +190,6 @@ func (f *FileStorage) Put(key string, target string) {
 			Str("target", target).
 			Msg("Failed to write to file")
 	}
-
 }
 
 func (f *FileStorage) Delete(key string) {
@@ -244,30 +243,26 @@ func (f *FileStorage) updateEntry(key string, target string) (bool, error) {
 	defer f.fileLock.Unlock()
 
 	curFile, err := os.OpenFile(f.configPath, os.O_RDONLY, 0600)
-	if err != nil {
-		return false, err
-	}
 	defer curFile.Close()
-
-	newFile, err := os.OpenFile(f.getScratchConfigFilepath(), os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
 	if err != nil {
 		return false, err
 	}
+
+	newFile, err := os.Create(f.getScratchConfigFilepath())
 	defer newFile.Close()
+	if err != nil {
+		return false, err
+	}
 
 	var changed = false
 	scanner := bufio.NewScanner(curFile)
 	for scanner.Scan() {
 		txt := scanner.Text()
+
 		// Path exists somewhere in the file
 		if strings.HasPrefix(txt, key+" ") {
 			if target == "" {
 				changed = true
-				continue
-			}
-
-			existingTarget := strings.Split(txt, " ")[1]
-			if target == existingTarget {
 				continue
 			}
 
@@ -278,13 +273,11 @@ func (f *FileStorage) updateEntry(key string, target string) (bool, error) {
 			continue
 		}
 
-		// Path does not exist in the file and we're not deleting
-		if target != "" {
-			_, err := newFile.WriteString(txt + "\n")
-			if err != nil {
-				fmt.Println(err)
-				return false, err
-			}
+		// If the path doesn't match, just write the line out
+		_, err := newFile.WriteString(txt + "\n")
+		if err != nil {
+			fmt.Println(err)
+			return false, err
 		}
 	}
 
