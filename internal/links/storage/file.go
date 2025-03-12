@@ -194,7 +194,6 @@ func (f *FileStorage) Put(key string, target string) {
 }
 
 func (f *FileStorage) Delete(key string) {
-	log.Debug().Str("key", key).Msg("Deleting key")
 	changed, err := f.updateEntry(key, "")
 	if err != nil {
 		log.
@@ -205,10 +204,7 @@ func (f *FileStorage) Delete(key string) {
 	}
 
 	if changed {
-		log.Debug().Str("key", key).Msg("Key deleted. Replacing config file in place")
-		log.Debug().Fields(f.Read()).Msg("File content before replace")
 		err = f.replaceConfigInPlace()
-		log.Debug().Fields(f.Read()).Msg("File content after replace")
 		if err != nil {
 			log.
 				Error().
@@ -263,16 +259,11 @@ func (f *FileStorage) updateEntry(key string, target string) (bool, error) {
 	scanner := bufio.NewScanner(curFile)
 	for scanner.Scan() {
 		txt := scanner.Text()
-		log.Debug().Str("line", txt).Msg("Scanning line")
+
 		// Path exists somewhere in the file
 		if strings.HasPrefix(txt, key+" ") {
 			if target == "" {
 				changed = true
-				continue
-			}
-
-			existingTarget := strings.Split(txt, " ")[1]
-			if target == existingTarget {
 				continue
 			}
 
@@ -283,13 +274,11 @@ func (f *FileStorage) updateEntry(key string, target string) (bool, error) {
 			continue
 		}
 
-		// Path does not exist in the file and we're not deleting
-		if target != "" {
-			_, err := newFile.WriteString(txt + "\n")
-			if err != nil {
-				fmt.Println(err)
-				return false, err
-			}
+		// If the path doesn't match, just write the line out
+		_, err := newFile.WriteString(txt + "\n")
+		if err != nil {
+			fmt.Println(err)
+			return false, err
 		}
 	}
 
