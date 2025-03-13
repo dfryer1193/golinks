@@ -21,6 +21,33 @@ body {
   box-sizing: border-box;
 }
 
+.controls-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  width: 100%;
+}
+
+.left-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.left-controls input {
+  width: 300px;
+  padding: 8px;
+  border: 1px solid #666;
+  border-radius: 5px;
+}
+
+.right-controls {
+  display: flex;
+  gap: 10px;
+  margin-left: auto;
+}
+
 .table-container {
   margin-top: 20px;
   overflow-x: auto;
@@ -142,9 +169,18 @@ button {
   cursor: pointer;
 }
 
+button svg {
+  margin-right: 5px;
+  vertical-align: middle;
+}
+
 button:hover {
   background-color: #fff;
   color: #333
+}
+
+button:hover svg {
+  fill: currentColor;
 }
 
 @media screen and (max-width: 768px) {
