@@ -8,6 +8,7 @@ import (
 	"github.com/dfryer1193/mjolnir/middleware"
 	"github.com/dfryer1193/mjolnir/utils"
 	"github.com/go-chi/chi/v5"
+	"mime"
 	"net/http"
 	"net/url"
 )
@@ -134,6 +135,40 @@ func (h *ApiHandler) search(w http.ResponseWriter, r *http.Request) {
 	}
 
 	utils.RespondJSON(w, r, http.StatusOK, hitMap)
+}
+
+func (h *ApiHandler) exportLinks(w http.ResponseWriter, r *http.Request) {
+	allLinks := h.linkMap.GetAll()
+
+	w.Header().Set("Content-Type", "text/plain")
+	w.Header().Set("Content-Disposition", "attachment; filename=links")
+
+	for path, target := range allLinks {
+		_, err := fmt.Fprintf(w, "%s %s\n", path, target)
+		if err != nil {
+			middleware.SetError(r, http.StatusInternalServerError, fmt.Errorf("error writing export file: %w", err))
+		}
+	}
+}
+
+func (h *ApiHandler) importLinks(w http.ResponseWriter, r *http.Request) {
+	mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	if err != nil {
+		middleware.SetBadRequestError(r, fmt.Errorf("invalid content type header: %w", err))
+		return
+	}
+
+	if mediaType != "text/plain" {
+		middleware.SetBadRequestError(r, fmt.Errorf("unsupported content type: %s; expected text/plain", mediaType))
+		return
+	}
+
+	err = h.linkMap.ReplaceAll(r.Body)
+	if err != nil {
+		middleware.SetInternalError(r, fmt.Errorf("error importing links: %w", err))
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func buildAlfredResponse(mapItems map[string]string) *alfredResponse {

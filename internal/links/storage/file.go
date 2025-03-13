@@ -5,13 +5,12 @@ import (
 	"fmt"
 	"github.com/fsnotify/fsnotify"
 	"github.com/rs/zerolog/log"
-	"net/url"
+	"io"
 	"os"
 	"os/user"
 	"path/filepath"
 	"strings"
 	"sync"
-	"unicode"
 )
 
 type FileStorage struct {
@@ -121,48 +120,14 @@ func openFile(path string) (*os.File, error) {
 	return file, nil
 }
 
-func parseLine(line string, lineNum int) (string, *url.URL) {
-	parts := strings.FieldsFunc(strings.TrimSpace(line), func(c rune) bool { return unicode.IsSpace(c) })
-	if len(parts) != 2 {
-		if len(parts) == 0 {
-			return "", nil
-		}
-		err := &ParseError{}
-		log.Fatal().Err(err).Int("line", lineNum).Msg("Malformed config. Each non-empty line must have exactly two entries.")
-		panic(1)
-	}
-
-	target, err := url.Parse(parts[1])
-	if err != nil {
-		log.Err(err).Int("line", lineNum).Str("url", parts[1]).Msg("Malformed config. Invalid url")
-	}
-
-	return parts[0], target
-}
-
-func (f *FileStorage) Read() map[string]string {
-	linkMap := make(map[string]string)
+func (f *FileStorage) Read() (map[string]string, error) {
 	filePtr, err := openFile(f.configPath)
 	if err != nil {
-		log.Error().Err(err).Str("file path", f.configPath).Msg("Failed to open file for reading")
-		return linkMap
+		return nil, fmt.Errorf("failed to open file %s for reading", f.configPath)
 	}
 	defer filePtr.Close()
 
-	scanner := bufio.NewScanner(filePtr)
-
-	lineNum := 0
-	for scanner.Scan() {
-		txt := scanner.Text()
-		lineNum++
-		key, target := parseLine(txt, lineNum)
-		if key == "" && target == nil {
-			continue
-		}
-		linkMap[key] = target.String()
-	}
-
-	return linkMap
+	return parseLinksFile(filePtr)
 }
 
 // Put appends a new entry to the link config. If the entry already exists, it will be duplicated in the file.
@@ -238,6 +203,15 @@ func (f *FileStorage) Update(key string, target string) {
 	}
 }
 
+func (f *FileStorage) ReplaceConfig(reader io.Reader) (map[string]string, error) {
+	err := f.backupAndReplace(reader)
+	if err != nil {
+		return nil, err
+	}
+
+	return parseLinksFile(reader)
+}
+
 func (f *FileStorage) updateEntry(key string, target string) (bool, error) {
 	f.fileLock.Lock()
 	defer f.fileLock.Unlock()
@@ -307,6 +281,28 @@ func (f *FileStorage) replaceConfigInPlace() error {
 	if err != nil {
 		return err
 	}
+	return nil
+}
+
+func (f *FileStorage) backupAndReplace(reader io.Reader) error {
+	f.fileLock.Lock()
+	defer f.fileLock.Unlock()
+	err := os.Rename(f.configPath, f.getBackupConfigFilepath())
+	if err != nil {
+		return fmt.Errorf("failed to backup config file: %w", err)
+	}
+
+	file, err := os.Create(f.configPath)
+	if err != nil {
+		return fmt.Errorf("failed to create config file: %w", err)
+	}
+	defer file.Close()
+
+	_, err = io.Copy(file, reader)
+	if err != nil {
+		return fmt.Errorf("failed to write config file: %w", err)
+	}
+
 	return nil
 }
 

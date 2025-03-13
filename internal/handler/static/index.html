@@ -19,9 +19,25 @@
  ╚═════╝  ╚═════╝ ╚═╝    ╚══════╝╚═╝╚═╝  ╚═══╝╚═╝  ╚═╝╚══════╝
 
       </pre>
-    <div class="search-container">
-        <label for="searchInput">Search Path:</label>
-        <input type="text" id="searchInput" placeholder="Type path to search...">
+    <div class="controls-container">
+        <div class="left-controls">
+            <label for="searchInput">Search Path:</label>
+            <input type="text" id="searchInput" placeholder="Type path to search...">
+        </div>
+        <div class="right-controls">
+            <button id="importButton">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M9 16h6v-6h4l-7-7-7 7h4v6zm-4 2h14v2H5v-2z"/>
+                </svg>
+                Import
+            </button>
+            <button id="exportButton">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+                </svg>
+                Export
+            </button>
+        </div>
     </div>
     <div class="table-container">
         <table class="nowrap-table">
@@ -146,6 +162,62 @@
                 }
             });
         });
+
+        document.getElementById('exportButton').addEventListener('click', function() {
+            fetch(apiPath + '/export')
+                .then(response => response.blob())
+                .then(blob => {
+                    // Create download link
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'links'; // filename
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    a.remove();
+                })
+                .catch(error => {
+                    console.error('Error exporting links:', error);
+                    alert('Failed to export links');
+                });
+        });
+
+        document.getElementById('importButton').addEventListener('click', function() {
+            // Create hidden file input
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.accept = '.txt,text/plain';
+
+            fileInput.addEventListener('change', function() {
+                const file = fileInput.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = function() {
+                    fetch(apiPath + '/import', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'text/plain'
+                        },
+                        body: reader.result
+                    })
+                        .then(response => {
+                            if (!response.ok) throw new Error('Import failed');
+                            alert('Links imported successfully');
+                            window.location.reload();
+                        })
+                        .catch(error => {
+                            console.error('Error importing links:', error);
+                            alert('Failed to import links');
+                        });
+                };
+                reader.readAsText(file);
+            });
+
+            fileInput.click();
+        });
+
     });
 </script>
 </body>
