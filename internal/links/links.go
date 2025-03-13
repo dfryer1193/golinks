@@ -2,6 +2,8 @@ package links
 
 import (
 	"github.com/dfryer1193/golinks/internal/links/storage"
+	"github.com/rs/zerolog/log"
+	"io"
 	"net/url"
 	"sync"
 )
@@ -22,10 +24,14 @@ type LinkMap struct {
 // an error.
 func NewLinkMap(persistType storage.StorageType, requestedConfig string) *LinkMap {
 	store := buildStorage(persistType, requestedConfig)
+	m, err := store.Read()
+	if err != nil {
+		panic(err)
+	}
 
 	linkMap := LinkMap{
 		store:   store,
-		m:       store.Read(),
+		m:       m,
 		mapLock: &sync.RWMutex{},
 	}
 
@@ -62,7 +68,13 @@ func (l *LinkMap) handleReload() {
 func (l *LinkMap) reload() {
 	l.mapLock.Lock()
 	defer l.mapLock.Unlock()
-	l.m = l.store.Read()
+	newMap, err := l.store.Read()
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to reload link map from storage.")
+		return
+	}
+
+	l.m = newMap
 }
 
 // Get returns the url and state of existence for a single key.
@@ -150,6 +162,17 @@ func (l *LinkMap) Update(key string, target *url.URL) error {
 	defer l.mapLock.Unlock()
 
 	l.m[key] = target.String()
+	return nil
+}
+
+func (l *LinkMap) ReplaceAll(mapReader io.Reader) error {
+	newMap, err := l.store.ReplaceConfig(mapReader)
+	if err != nil {
+		return err
+	}
+	l.mapLock.Lock()
+	defer l.mapLock.Unlock()
+	l.m = newMap
 	return nil
 }
 
