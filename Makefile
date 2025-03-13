@@ -11,7 +11,7 @@ all: build manifest push
 build:
 	@echo "Building images for platforms: $(ARCHS)"
 	@$(foreach arch, $(ARCHS), \
-		docker build --arch $(arch) -t $(IMAGE_NAME):$(TAG)-$(arch) .;)
+		docker build --platform linux/$(arch) -t $(IMAGE_NAME):$(TAG)-$(arch) .;)
 
 manifest:
 	@echo "Creating manifest for images"
@@ -31,16 +31,11 @@ clean:
 		docker rmi $(IMAGE_NAME):$(TAG)-$(arch);)
 	docker manifest rm $(IMAGE_NAME):$(TAG)
 
-run: build
+run: bin
 	@echo "Running golinks container..."
 	@mkdir -p /tmp/golinks-config
 	@[ -f /tmp/golinks-config/links ] || touch /tmp/golinks-config/links
-	@docker run --rm \
-		--name golinks \
-		-p 8080:8080 \
-		-v /tmp/golinks-config:/config:rw \
-		localhost/$(IMAGE_NAME):$(TAG)-$(CURRENT_ARCH)
-	@echo "Golinks is running on http://localhost:8080"
+	@./bin/golinks -level DEBUG -config /tmp/golinks-config/links
 
 bin:
 	@echo "Building golinks..."
