@@ -2,15 +2,17 @@ package storage
 
 import (
 	"github.com/rs/zerolog/log"
+	"io"
 	"strings"
 )
 
 type Storage interface {
-	Read() map[string]string
+	Read() (map[string]string, error)
 	Put(key string, target string)
 	Delete(key string)
 	Update(key string, target string)
 	GetReloadChannel() <-chan bool
+	ReplaceConfig(reader io.Reader) (map[string]string, error)
 }
 
 type StorageType int
