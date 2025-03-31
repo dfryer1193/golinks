@@ -55,20 +55,15 @@ install:
 	@echo "Installing golinks..."
 	@go install cmd/golinks/golinks.go
 
-list:
-	@echo "Listing Docker images"
-	docker images | grep $(IMAGE_NAME)
-
-# Print help
 help:
 	@echo "Makefile commands:"
-	@echo "  make all       - Build and push Docker images"
-	@echo "  make build     - Build Docker images"
-	@echo "  make manifest  - Create a manifest for built images"
-	@echo "  make push      - Push Docker images to registry"
-	@echo "  make bin       - Build binary"
-	@echo "  make install   - Install binary"
-	@echo "  make clean     - Remove local binaries and Docker images"
-	@echo "  make list      - List Docker images"
-	@echo "  make run       - Run golinks container (Ctrl+C to stop)"
-	@echo "  make help      - Show this help message"
+	@echo "  make all         - Build and push multiarch Docker images"
+	@echo "  make build	  - Build multiarch Docker images locally"
+	@echo "  make push-images - Push individual architecture images to registry"
+	@echo "  make manifest    - Create a multi-arch manifest for built images"
+	@echo "  make push        - Push the manifest to registry"
+	@echo "  make bin         - Build binary"
+	@echo "  make install     - Install binary"
+	@echo "  make clean       - Remove local binaries and Docker images"
+	@echo "  make run         - Run golinks container (Ctrl+C to stop)"
+	@echo "  make help        - Show this help message"
