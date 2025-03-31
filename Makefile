@@ -1,27 +1,37 @@
 # Define variables
-IMAGE_NAME := decahedra/golinks
-TAG := $(shell git describe --tags $(shell git rev-list --tags --max-count=1))
+IMAGE_NAME := golinks
+TAG := $(shell \
+       LASTTAG=$$(git describe --tags --abbrev=0); \
+       COMMITS_SINCE=$$(git rev-list $$LASTTAG..HEAD --count); \
+       if [ "$$COMMITS_SINCE" = "0" ]; then \
+           echo $$LASTTAG; \
+       else \
+           echo "$$LASTTAG-dev.$$COMMITS_SINCE-$$(git rev-parse --short HEAD)"; \
+       fi)
 ARCHS := amd64 arm64
-REGISTRY := docker.io
-CURRENT_ARCH := $(shell uname -m | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/')
+REGISTRY := registry.werewolves.fyi
 
 # Define targets
-all: build manifest push
+all: build push-images manifest push
 
 build:
 	@echo "Building images for platforms: $(ARCHS)"
 	@$(foreach arch, $(ARCHS), \
-		docker build --platform linux/$(arch) -t $(IMAGE_NAME):$(TAG)-$(arch) .;)
+		docker build --platform linux/$(arch) -t $(REGISTRY)/$(IMAGE_NAME):$(TAG)-$(arch) .;)
+
+push-images:
+	@echo "Pushing individual architecture images"
+	@$(foreach arch, $(ARCHS), \
+		docker push $(REGISTRY)/$(IMAGE_NAME):$(TAG)-$(arch);)
 
 manifest:
-	@echo "Creating manifest for images"
-	@docker manifest create $(IMAGE_NAME):$(TAG)
-	@$(foreach arch, $(ARCHS), \
-		docker manifest add $(IMAGE_NAME):$(TAG) containers-storage:localhost/$(IMAGE_NAME):$(TAG)-$(arch);)
+	@echo "Creating manifest for images $(REGISTRY)/$(IMAGE_NAME):$(TAG)"
+	@docker manifest create $(REGISTRY)/$(IMAGE_NAME):$(TAG) \
+		$(foreach arch,$(ARCHS),$(REGISTRY)/$(IMAGE_NAME):$(TAG)-$(arch))
 
 push:
 	@echo "Pushing Docker image $(REGISTRY)/$(IMAGE_NAME):$(TAG)"
-	@docker manifest push --all $(IMAGE_NAME):$(TAG) docker://$(REGISTRY)/$(IMAGE_NAME):$(TAG)
+	@docker manifest push $(REGISTRY)/$(IMAGE_NAME):$(TAG)
 
 clean:
 	@echo "Removing built binaries..."
