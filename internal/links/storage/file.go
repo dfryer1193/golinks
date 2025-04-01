@@ -3,14 +3,15 @@ package storage
 import (
 	"bufio"
 	"fmt"
-	"github.com/fsnotify/fsnotify"
-	"github.com/rs/zerolog/log"
 	"io"
 	"os"
 	"os/user"
 	"path/filepath"
 	"strings"
 	"sync"
+
+	"github.com/fsnotify/fsnotify"
+	"github.com/rs/zerolog/log"
 )
 
 type FileStorage struct {
@@ -209,7 +210,10 @@ func (f *FileStorage) ReplaceConfig(reader io.Reader) (map[string]string, error)
 		return nil, err
 	}
 
-	return parseLinksFile(reader)
+	file, err := openFile(f.configPath)
+	defer file.Close()
+
+	return parseLinksFile(file)
 }
 
 func (f *FileStorage) updateEntry(key string, target string) (bool, error) {
