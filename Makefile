@@ -1,27 +1,37 @@
 # Define variables
-IMAGE_NAME := decahedra/golinks
-TAG := $(shell git describe --tags $(shell git rev-list --tags --max-count=1))
+IMAGE_NAME := golinks
+TAG := $(shell \
+       LASTTAG=$$(git describe --tags --abbrev=0); \
+       COMMITS_SINCE=$$(git rev-list $$LASTTAG..HEAD --count); \
+       if [ "$$COMMITS_SINCE" = "0" ]; then \
+           echo $$LASTTAG; \
+       else \
+           echo "$$LASTTAG-dev.$$COMMITS_SINCE-$$(git rev-parse --short HEAD)"; \
+       fi)
 ARCHS := amd64 arm64
-REGISTRY := docker.io
-CURRENT_ARCH := $(shell uname -m | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/')
+REGISTRY := registry.werewolves.fyi
 
 # Define targets
-all: build manifest push
+all: build push-images manifest push
 
 build:
 	@echo "Building images for platforms: $(ARCHS)"
 	@$(foreach arch, $(ARCHS), \
-		docker build --platform linux/$(arch) -t $(IMAGE_NAME):$(TAG)-$(arch) .;)
+		docker build --platform linux/$(arch) -t $(REGISTRY)/$(IMAGE_NAME):$(TAG)-$(arch) .;)
+
+push-images:
+	@echo "Pushing individual architecture images"
+	@$(foreach arch, $(ARCHS), \
+		docker push $(REGISTRY)/$(IMAGE_NAME):$(TAG)-$(arch);)
 
 manifest:
-	@echo "Creating manifest for images"
-	@docker manifest create $(IMAGE_NAME):$(TAG)
-	@$(foreach arch, $(ARCHS), \
-		docker manifest add $(IMAGE_NAME):$(TAG) containers-storage:localhost/$(IMAGE_NAME):$(TAG)-$(arch);)
+	@echo "Creating manifest for images $(REGISTRY)/$(IMAGE_NAME):$(TAG)"
+	@docker manifest create $(REGISTRY)/$(IMAGE_NAME):$(TAG) \
+		$(foreach arch,$(ARCHS),$(REGISTRY)/$(IMAGE_NAME):$(TAG)-$(arch))
 
 push:
 	@echo "Pushing Docker image $(REGISTRY)/$(IMAGE_NAME):$(TAG)"
-	@docker manifest push --all $(IMAGE_NAME):$(TAG) docker://$(REGISTRY)/$(IMAGE_NAME):$(TAG)
+	@docker manifest push $(REGISTRY)/$(IMAGE_NAME):$(TAG)
 
 clean:
 	@echo "Removing built binaries..."
@@ -45,20 +55,15 @@ install:
 	@echo "Installing golinks..."
 	@go install cmd/golinks/golinks.go
 
-list:
-	@echo "Listing Docker images"
-	docker images | grep $(IMAGE_NAME)
-
-# Print help
 help:
 	@echo "Makefile commands:"
-	@echo "  make all       - Build and push Docker images"
-	@echo "  make build     - Build Docker images"
-	@echo "  make manifest  - Create a manifest for built images"
-	@echo "  make push      - Push Docker images to registry"
-	@echo "  make bin       - Build binary"
-	@echo "  make install   - Install binary"
-	@echo "  make clean     - Remove local binaries and Docker images"
-	@echo "  make list      - List Docker images"
-	@echo "  make run       - Run golinks container (Ctrl+C to stop)"
-	@echo "  make help      - Show this help message"
+	@echo "  make all         - Build and push multiarch Docker images"
+	@echo "  make build	  - Build multiarch Docker images locally"
+	@echo "  make push-images - Push individual architecture images to registry"
+	@echo "  make manifest    - Create a multi-arch manifest for built images"
+	@echo "  make push        - Push the manifest to registry"
+	@echo "  make bin         - Build binary"
+	@echo "  make install     - Install binary"
+	@echo "  make clean       - Remove local binaries and Docker images"
+	@echo "  make run         - Run golinks container (Ctrl+C to stop)"
+	@echo "  make help        - Show this help message"
