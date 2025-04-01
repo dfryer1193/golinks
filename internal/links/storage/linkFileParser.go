@@ -2,11 +2,12 @@ package storage
 
 import (
 	"bufio"
-	"github.com/rs/zerolog/log"
 	"io"
 	"net/url"
 	"strings"
 	"unicode"
+
+	"github.com/rs/zerolog/log"
 )
 
 func parseLinksFile(reader io.Reader) (map[string]string, error) {
