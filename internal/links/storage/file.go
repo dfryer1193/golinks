@@ -63,7 +63,7 @@ func (f *FileStorage) watchConfig() {
 			if err != nil {
 				log.Err(err).Msg("File watch error received")
 			}
-			fmt.Println(err)
+			log.Err(err).Msg("File watch error received")
 		}
 	}
 }
@@ -254,7 +254,13 @@ func (f *FileStorage) updateEntry(key string, target string) (bool, error) {
 		// If the path doesn't match, just write the line out
 		_, err := newFile.WriteString(txt + "\n")
 		if err != nil {
-			fmt.Println(err)
+			log.
+				Error().
+				Err(err).
+				Str("file path", f.configPath).
+				Str("key", key).
+				Str("target", target).
+				Msg("Failed to write to file")
 			return false, err
 		}
 	}
