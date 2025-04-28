@@ -9,7 +9,7 @@ func NewNoneStorage() *NoneStorage {
 }
 
 func (s *NoneStorage) Read() (map[string]string, error) {
-	return nil, nil
+	return make(map[string]string), nil
 }
 
 func (s *NoneStorage) Put(key string, target string) {

@@ -1,11 +1,12 @@
 package links
 
 import (
-	"github.com/dfryer1193/golinks/internal/links/storage"
-	"github.com/rs/zerolog/log"
 	"io"
 	"net/url"
 	"sync"
+
+	"github.com/dfryer1193/golinks/internal/links/storage"
+	"github.com/rs/zerolog/log"
 )
 
 type ParseError struct{}
