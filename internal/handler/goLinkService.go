@@ -1,11 +1,12 @@
 package handler
 
 import (
+	"net/http"
+
 	"github.com/dfryer1193/golinks/config"
 	"github.com/dfryer1193/golinks/internal/links"
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
-	"net/http"
 )
 
 // GolinkHandler handles all incoming/outgoing http requests for go links.
@@ -43,12 +44,12 @@ func NewGoLinkService(router *chi.Mux, cfg *config.Config) {
 		r.Get("/favicon.ico", frontendHandler.serveFavicon)
 		r.Get("/styles.css", frontendHandler.serveStyles)
 		r.Get("/update", frontendHandler.serveNewForm)
-		r.Get("/{path}", service.handleGet)
+		r.Get("/*", service.handleGet)
 	})
 }
 
 func (h *GolinkHandler) handleGet(w http.ResponseWriter, r *http.Request) {
-	path := chi.URLParam(r, "path")
+	path := chi.URLParam(r, "*")
 
 	target, exists := h.linkMap.Get(path)
 
