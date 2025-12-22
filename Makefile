@@ -58,7 +58,7 @@ install:
 help:
 	@echo "Makefile commands:"
 	@echo "  make all         - Build and push multiarch Docker images"
-	@echo "  make build	  - Build multiarch Docker images locally"
+	@echo "  make build       - Build multiarch Docker images locally"
 	@echo "  make push-images - Push individual architecture images to registry"
 	@echo "  make manifest    - Create a multi-arch manifest for built images"
 	@echo "  make push        - Push the manifest to registry"
