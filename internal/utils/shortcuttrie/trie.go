@@ -24,6 +24,15 @@ type node struct {
 	argName  optional.Option[string]
 }
 
+func newEmptyNode() *node {
+	return &node{
+		children: make(map[string]*node),
+		shortcut: optional.Empty[string](),
+		varNode:  nil,
+		argName:  optional.Empty[string](),
+	}
+}
+
 func (n *node) String() string {
 	return n.toStr(`""`, 0)
 }
@@ -57,9 +66,7 @@ func (n *node) toStr(name string, level int) string {
 
 func NewShortcutTrie() *ShortcutTrie {
 	return &ShortcutTrie{
-		root: &node{
-			children: make(map[string]*node),
-		},
+		root: newEmptyNode(),
 	}
 }
 
@@ -173,9 +180,7 @@ func (n *node) addChild(segment string) *node {
 
 		n.varNode = next
 	} else {
-		next = &node{
-			children: make(map[string]*node),
-		}
+		next = newEmptyNode()
 
 		n.children[segment] = next
 	}
