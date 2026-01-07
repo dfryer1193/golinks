@@ -107,3 +107,16 @@ func TestMidPathVariables(t *testing.T) {
 		t.Errorf("Expected target %s, got %s instead.", expectedTarget, retrievedTarget)
 	}
 }
+
+func TestDoesNotMatchOnPrefixOnly(t *testing.T) {
+	inputPath := "/foo/bar"
+	inputTarget := "http://example.com/foo/bar"
+
+	trie := NewShortcutTrie()
+	trie.Insert(inputPath, inputTarget)
+
+	target, found := trie.Get("/foo")
+	if found {
+		t.Errorf("Expected not to find path /foo, but found %s.", target)
+	}
+}
