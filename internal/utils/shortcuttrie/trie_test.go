@@ -120,3 +120,24 @@ func TestDoesNotMatchOnPrefixOnly(t *testing.T) {
 		t.Errorf("Expected not to find path /foo, but found %s.", target)
 	}
 }
+
+func TestPrefixOnlyMatchWithShortcut(t *testing.T) {
+	inputPath := "/foo"
+	inputTarget := "http://example.com/foo"
+
+	inputPath2 := "/foo/bar"
+	inputTarget2 := "http://example.com/foo/bar"
+
+	trie := NewShortcutTrie()
+	trie.Insert(inputPath, inputTarget)
+	trie.Insert(inputPath2, inputTarget2)
+
+	retrievedTarget, found := trie.Get("/foo")
+	if !found {
+		t.Errorf("Expected to find path /foo, but did not.")
+	}
+
+	if retrievedTarget != inputTarget {
+		t.Errorf("Expected target %s, got %s instead.", inputTarget, retrievedTarget)
+	}
+}
