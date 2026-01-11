@@ -5,6 +5,7 @@ import (
 
 	"github.com/dfryer1193/golinks/config"
 	"github.com/dfryer1193/golinks/internal/links"
+	"github.com/dfryer1193/mjolnir/utils/errorx"
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
 )
@@ -28,27 +29,27 @@ func NewGoLinkService(router *chi.Mux, cfg *config.Config) {
 	}
 
 	router.Route("/api/v1", func(r chi.Router) {
-		r.Get("/all", apiHandler.getAll)
-		r.Get("/all/alfred", apiHandler.getAllForAlfred)
-		r.Get("/search", apiHandler.search)
-		r.Get("/links/{path}", apiHandler.getLink)
-		r.Post("/links/{path}", apiHandler.postLink)
-		r.Delete("/links/{path}", apiHandler.deleteLink)
-		r.Get("/export", apiHandler.exportLinks)
-		r.Post("/import", apiHandler.importLinks)
+		r.Get("/all", errorx.ErrorHandler(apiHandler.getAll))
+		r.Get("/all/alfred", errorx.ErrorHandler(apiHandler.getAllForAlfred))
+		r.Get("/search", errorx.ErrorHandler(apiHandler.search))
+		r.Get("/links/{path}", errorx.ErrorHandler(apiHandler.getLink))
+		r.Post("/links/{path}", errorx.ErrorHandler(apiHandler.postLink))
+		r.Delete("/links/{path}", errorx.ErrorHandler(apiHandler.deleteLink))
+		r.Get("/export", errorx.ErrorHandler(apiHandler.exportLinks))
+		r.Post("/import", errorx.ErrorHandler(apiHandler.importLinks))
 	})
 
 	router.Route("/", func(r chi.Router) {
 		r.Use(noCacheMiddleware)
-		r.Get("/", frontendHandler.serveHomepage)
-		r.Get("/favicon.ico", frontendHandler.serveFavicon)
-		r.Get("/styles.css", frontendHandler.serveStyles)
-		r.Get("/update", frontendHandler.serveNewForm)
-		r.Get("/*", service.handleGet)
+		r.Get("/", errorx.ErrorHandler(frontendHandler.serveHomepage))
+		r.Get("/favicon.ico", errorx.ErrorHandler(frontendHandler.serveFavicon))
+		r.Get("/styles.css", errorx.ErrorHandler(frontendHandler.serveStyles))
+		r.Get("/update", errorx.ErrorHandler(frontendHandler.serveNewForm))
+		r.Get("/*", errorx.ErrorHandler(service.handleGet))
 	})
 }
 
-func (h *GolinkHandler) handleGet(w http.ResponseWriter, r *http.Request) {
+func (h *GolinkHandler) handleGet(w http.ResponseWriter, r *http.Request) *errorx.ApiError {
 	path := chi.URLParam(r, "*")
 
 	target, exists := h.linkMap.Get(path)
@@ -56,8 +57,8 @@ func (h *GolinkHandler) handleGet(w http.ResponseWriter, r *http.Request) {
 	if exists {
 		log.Debug().Str("target", target).Msg("Shortcut found! Redirecting...")
 		http.Redirect(w, r, target, http.StatusTemporaryRedirect)
-		return
+		return nil
 	}
 
-	h.frontendHandler.serveNewForm(w, r)
+	return h.frontendHandler.serveNewForm(w, r)
 }
