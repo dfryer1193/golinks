@@ -2,10 +2,11 @@ package handler
 
 import (
 	"embed"
-	"fmt"
-	"github.com/dfryer1193/mjolnir/middleware"
 	"io"
+	"io/fs"
 	"net/http"
+
+	"github.com/dfryer1193/mjolnir/utils/errorx"
 )
 
 //go:embed static/*
@@ -33,46 +34,93 @@ func NewFrontendHandler() *FrontendHandler {
 	return &FrontendHandler{}
 }
 
-func (h *FrontendHandler) serveHomepage(w http.ResponseWriter, r *http.Request) {
-	serveEmbeddedContent(w, r, INDEX)
-}
-
-func (h *FrontendHandler) serveFavicon(w http.ResponseWriter, r *http.Request) {
-	serveEmbeddedContent(w, r, FAVICON)
-}
-
-func (h *FrontendHandler) serveStyles(w http.ResponseWriter, r *http.Request) {
-	serveEmbeddedContent(w, r, STYLES)
-}
-
-func (h *FrontendHandler) serveNewForm(w http.ResponseWriter, r *http.Request) {
-	serveEmbeddedContent(w, r, NEW)
-}
-
-func serveEmbeddedContent(w http.ResponseWriter, r *http.Request, contentKey ContentName) {
-	filename := staticContent[contentKey]
-	file, err := content.Open(filename)
+func (h *FrontendHandler) serveHomepage(w http.ResponseWriter, r *http.Request) *errorx.ApiError {
+	file, err := serveEmbeddedContent(w, r, INDEX)
 	if err != nil {
-		middleware.SetInternalError(r, fmt.Errorf("error opening embedded file %s: %w", filename, err))
-		return
+		return errorx.InternalServerErr(err)
 	}
 	defer file.Close()
 
-	stat, err := file.Stat()
+	fileStat, err := file.Stat()
 	if err != nil {
-		middleware.SetInternalError(r, fmt.Errorf("cannot get file info for embedded file %s: %w", filename, err))
+		return errorx.InternalServerErr(err)
 	}
 
-	contentType := ""
-	switch {
-	case stat.Name() == "favicon.ico":
-		contentType = "image/x-icon"
-	case stat.Name() == "styles.css":
-		contentType = "text/css"
-	case stat.Name() == "new.html" || stat.Name() == "index.html":
-		contentType = "text/html"
+	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Length", string(fileStat.Size()))
+	w.Header().Set("Content-Type", "text/html")
+	http.ServeContent(w, r, fileStat.Name(), fileStat.ModTime(), file.(io.ReadSeeker))
+
+	return nil
+}
+
+func (h *FrontendHandler) serveFavicon(w http.ResponseWriter, r *http.Request) *errorx.ApiError {
+	file, err := serveEmbeddedContent(w, r, FAVICON)
+	if err != nil {
+		return errorx.InternalServerErr(err)
+	}
+	defer file.Close()
+
+	fileStat, err := file.Stat()
+	if err != nil {
+		return errorx.InternalServerErr(err)
 	}
 
-	w.Header().Set("Content-Type", contentType)
-	http.ServeContent(w, r, stat.Name(), stat.ModTime(), file.(io.ReadSeeker))
+	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Type", "image/x-icon")
+	w.Header().Set("Content-Length", string(fileStat.Size()))
+	http.ServeContent(w, r, fileStat.Name(), fileStat.ModTime(), file.(io.ReadSeeker))
+
+	return nil
+}
+
+func (h *FrontendHandler) serveStyles(w http.ResponseWriter, r *http.Request) *errorx.ApiError {
+	file, err := serveEmbeddedContent(w, r, STYLES)
+	if err != nil {
+		return errorx.InternalServerErr(err)
+	}
+	defer file.Close()
+
+	fileStat, err := file.Stat()
+	if err != nil {
+		return errorx.InternalServerErr(err)
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Length", string(fileStat.Size()))
+	w.Header().Set("Content-Type", "text/css")
+	http.ServeContent(w, r, fileStat.Name(), fileStat.ModTime(), file.(io.ReadSeeker))
+
+	return nil
+}
+
+func (h *FrontendHandler) serveNewForm(w http.ResponseWriter, r *http.Request) *errorx.ApiError {
+	file, err := serveEmbeddedContent(w, r, NEW)
+	if err != nil {
+		return errorx.InternalServerErr(err)
+	}
+	defer file.Close()
+
+	fileStat, err := file.Stat()
+	if err != nil {
+		return errorx.InternalServerErr(err)
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Length", string(fileStat.Size()))
+	w.Header().Set("Content-Type", "text/html")
+	http.ServeContent(w, r, fileStat.Name(), fileStat.ModTime(), file.(io.ReadSeeker))
+
+	return nil
+}
+
+// serveEmbeddedContent serves static content embedded in the binary. The returned file **MUST** be closed by the caller.
+func serveEmbeddedContent(w http.ResponseWriter, r *http.Request, contentKey ContentName) (fs.File, error) {
+	filename := staticContent[contentKey]
+	file, err := content.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+
+	return file, nil
 }
