@@ -2,15 +2,16 @@ package handler
 
 import (
 	"fmt"
-	"github.com/dfryer1193/golinks/internal/links"
-	"github.com/dfryer1193/golinks/internal/search"
-	"github.com/dfryer1193/golinks/models"
-	"github.com/dfryer1193/mjolnir/middleware"
-	"github.com/dfryer1193/mjolnir/utils"
-	"github.com/go-chi/chi/v5"
 	"mime"
 	"net/http"
 	"net/url"
+
+	"github.com/dfryer1193/golinks/internal/links"
+	"github.com/dfryer1193/golinks/internal/search"
+	"github.com/dfryer1193/golinks/models"
+	"github.com/dfryer1193/mjolnir/utils/errorx"
+	"github.com/dfryer1193/mjolnir/utils/httpx"
+	"github.com/go-chi/chi/v5"
 )
 
 type alfredItem struct {
@@ -34,15 +35,14 @@ func NewApiHandler(linkMap *links.LinkMap) *ApiHandler {
 	return &ApiHandler{linkMap: linkMap}
 }
 
-func (h *ApiHandler) postLink(w http.ResponseWriter, r *http.Request) {
+func (h *ApiHandler) postLink(w http.ResponseWriter, r *http.Request) *errorx.ApiError {
 	path := chi.URLParam(r, "path")
 	target := &struct {
 		Target string `json:"target"`
 	}{}
-	err := utils.DecodeJSON(r, target)
+	_, err := httpx.DecodeJSON(r, target)
 	if err != nil {
-		middleware.SetError(r, http.StatusBadRequest, fmt.Errorf("invalid target: %w", err))
-		return
+		return errorx.BadRequestErr(fmt.Errorf("invalid request body: %w", err))
 	}
 	newEntry := &models.Entry{
 		Path:   path,
@@ -51,8 +51,7 @@ func (h *ApiHandler) postLink(w http.ResponseWriter, r *http.Request) {
 
 	targetUrl, err := url.Parse(target.Target)
 	if err != nil {
-		middleware.SetError(r, http.StatusBadRequest, fmt.Errorf("target %s is not a valid url", target.Target))
-		return
+		return errorx.BadRequestErr(fmt.Errorf("invalid target URL %s: %w", target.Target, err))
 	}
 
 	var oldEntry *models.Entry
@@ -64,13 +63,11 @@ func (h *ApiHandler) postLink(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if err := h.linkMap.Update(newEntry.Path, targetUrl); err != nil {
-			middleware.SetError(r, http.StatusInternalServerError, fmt.Errorf("error updating link %s: %w", newEntry.Path, err))
-			return
+			return errorx.InternalServerErr(fmt.Errorf("error updating link %s: %w", newEntry.Path, err))
 		}
 	} else {
 		if err := h.linkMap.Put(path, targetUrl); err != nil {
-			middleware.SetError(r, http.StatusInternalServerError, fmt.Errorf("error adding link %s: %w", newEntry.Path, err))
-			return
+			return errorx.InternalServerErr(fmt.Errorf("error creating link %s: %w", newEntry.Path, err))
 		}
 	}
 
@@ -79,44 +76,52 @@ func (h *ApiHandler) postLink(w http.ResponseWriter, r *http.Request) {
 		New: newEntry,
 	}
 
-	utils.RespondJSON(w, r, http.StatusOK, update)
+	httpx.RespondJSON(w, r, http.StatusOK, update)
+
+	return nil
 }
 
-func (h *ApiHandler) deleteLink(w http.ResponseWriter, r *http.Request) {
+func (h *ApiHandler) deleteLink(w http.ResponseWriter, r *http.Request) *errorx.ApiError {
 	path := chi.URLParam(r, "path")
 	if err := h.linkMap.Delete(path); err != nil {
-		middleware.SetError(r, http.StatusInternalServerError, fmt.Errorf("error deleting link %s: %w", path, err))
-		return
+		return errorx.InternalServerErr(fmt.Errorf("error deleting link %s: %w", path, err))
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+
+	return nil
 }
 
-func (h *ApiHandler) getAll(w http.ResponseWriter, r *http.Request) {
+func (h *ApiHandler) getAll(w http.ResponseWriter, r *http.Request) *errorx.ApiError {
 	allLinks := h.linkMap.GetAll()
-	utils.RespondJSON(w, r, http.StatusOK, allLinks)
+	httpx.RespondJSON(w, r, http.StatusOK, allLinks)
+
+	return nil
 }
 
-func (h *ApiHandler) getAllForAlfred(w http.ResponseWriter, r *http.Request) {
+func (h *ApiHandler) getAllForAlfred(w http.ResponseWriter, r *http.Request) *errorx.ApiError {
 	alfredResponse := buildAlfredResponse(h.linkMap.GetAll())
-	utils.RespondJSON(w, r, http.StatusOK, alfredResponse)
+	httpx.RespondJSON(w, r, http.StatusOK, alfredResponse)
+
+	return nil
 }
 
-func (h *ApiHandler) getLink(w http.ResponseWriter, r *http.Request) {
+func (h *ApiHandler) getLink(w http.ResponseWriter, r *http.Request) *errorx.ApiError {
 	path := chi.URLParam(r, "path")
 	target, exists := h.linkMap.Get(path)
 	if !exists {
-		middleware.SetError(r, http.StatusNotFound, fmt.Errorf("path %s has no target", path))
-		return
+		return errorx.BadRequestErr(fmt.Errorf("link not found for path: %s", path))
 	}
 
-	utils.RespondJSON(w, r, http.StatusOK, models.Entry{
+	httpx.RespondJSON(w, r, http.StatusOK, models.Entry{
 		Path:   path,
 		Target: target,
 	})
+
+	return nil
 }
 
-func (h *ApiHandler) search(w http.ResponseWriter, r *http.Request) {
+func (h *ApiHandler) search(w http.ResponseWriter, r *http.Request) *errorx.ApiError {
 	options := h.linkMap.GetAllKeys()
 	query := r.URL.Query().Get("query")
 	isAlfredRequest := r.URL.Query().Get("isAlfred") == "true"
@@ -130,14 +135,16 @@ func (h *ApiHandler) search(w http.ResponseWriter, r *http.Request) {
 
 	if isAlfredRequest {
 		resp := buildAlfredResponse(hitMap)
-		utils.RespondJSON(w, r, http.StatusOK, resp)
-		return
+		httpx.RespondJSON(w, r, http.StatusOK, resp)
+		return nil
 	}
 
-	utils.RespondJSON(w, r, http.StatusOK, hitMap)
+	httpx.RespondJSON(w, r, http.StatusOK, hitMap)
+
+	return nil
 }
 
-func (h *ApiHandler) exportLinks(w http.ResponseWriter, r *http.Request) {
+func (h *ApiHandler) exportLinks(w http.ResponseWriter, r *http.Request) *errorx.ApiError {
 	allLinks := h.linkMap.GetAll()
 
 	w.Header().Set("Content-Type", "text/plain")
@@ -146,29 +153,30 @@ func (h *ApiHandler) exportLinks(w http.ResponseWriter, r *http.Request) {
 	for path, target := range allLinks {
 		_, err := fmt.Fprintf(w, "%s %s\n", path, target)
 		if err != nil {
-			middleware.SetError(r, http.StatusInternalServerError, fmt.Errorf("error writing export file: %w", err))
+			return errorx.InternalServerErr(fmt.Errorf("error writing link %s to response: %w", path, err))
 		}
 	}
+
+	return nil
 }
 
-func (h *ApiHandler) importLinks(w http.ResponseWriter, r *http.Request) {
+func (h *ApiHandler) importLinks(w http.ResponseWriter, r *http.Request) *errorx.ApiError {
 	mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
 	if err != nil {
-		middleware.SetBadRequestError(r, fmt.Errorf("invalid content type header: %w", err))
-		return
+		return errorx.BadRequestErr(fmt.Errorf("invalid content type: %w", err))
 	}
 
 	if mediaType != "text/plain" {
-		middleware.SetBadRequestError(r, fmt.Errorf("unsupported content type: %s; expected text/plain", mediaType))
-		return
+		return errorx.BadRequestErr(fmt.Errorf("unsupported content type: %s; expected text/plain", mediaType))
 	}
 
 	err = h.linkMap.ReplaceAll(r.Body)
 	if err != nil {
-		middleware.SetInternalError(r, fmt.Errorf("error importing links: %w", err))
-		return
+		return errorx.InternalServerErr(fmt.Errorf("error importing links: %w", err))
 	}
 	w.WriteHeader(http.StatusNoContent)
+
+	return nil
 }
 
 func buildAlfredResponse(mapItems map[string]string) *alfredResponse {
