@@ -2,6 +2,7 @@ package handler
 
 import (
 	"embed"
+	"fmt"
 	"io"
 	"io/fs"
 	"net/http"
@@ -46,8 +47,10 @@ func (h *FrontendHandler) serveHomepage(w http.ResponseWriter, r *http.Request) 
 		return errorx.InternalServerErr(err)
 	}
 
+	sizeStr := fmt.Sprintf("%d", fileStat.Size())
+
 	w.WriteHeader(http.StatusOK)
-	w.Header().Set("Content-Length", string(fileStat.Size()))
+	w.Header().Set("Content-Length", sizeStr)
 	w.Header().Set("Content-Type", "text/html")
 	http.ServeContent(w, r, fileStat.Name(), fileStat.ModTime(), file.(io.ReadSeeker))
 
@@ -66,9 +69,11 @@ func (h *FrontendHandler) serveFavicon(w http.ResponseWriter, r *http.Request) *
 		return errorx.InternalServerErr(err)
 	}
 
+	sizeStr := fmt.Sprintf("%d", fileStat.Size())
+
 	w.WriteHeader(http.StatusOK)
 	w.Header().Set("Content-Type", "image/x-icon")
-	w.Header().Set("Content-Length", string(fileStat.Size()))
+	w.Header().Set("Content-Length", sizeStr)
 	http.ServeContent(w, r, fileStat.Name(), fileStat.ModTime(), file.(io.ReadSeeker))
 
 	return nil
@@ -86,8 +91,10 @@ func (h *FrontendHandler) serveStyles(w http.ResponseWriter, r *http.Request) *e
 		return errorx.InternalServerErr(err)
 	}
 
+	sizeStr := fmt.Sprintf("%d", fileStat.Size())
+
 	w.WriteHeader(http.StatusOK)
-	w.Header().Set("Content-Length", string(fileStat.Size()))
+	w.Header().Set("Content-Length", sizeStr)
 	w.Header().Set("Content-Type", "text/css")
 	http.ServeContent(w, r, fileStat.Name(), fileStat.ModTime(), file.(io.ReadSeeker))
 
@@ -106,8 +113,10 @@ func (h *FrontendHandler) serveNewForm(w http.ResponseWriter, r *http.Request) *
 		return errorx.InternalServerErr(err)
 	}
 
+	sizeStr := fmt.Sprintf("%d", fileStat.Size())
+
 	w.WriteHeader(http.StatusOK)
-	w.Header().Set("Content-Length", string(fileStat.Size()))
+	w.Header().Set("Content-Length", sizeStr)
 	w.Header().Set("Content-Type", "text/html")
 	http.ServeContent(w, r, fileStat.Name(), fileStat.ModTime(), file.(io.ReadSeeker))
 
