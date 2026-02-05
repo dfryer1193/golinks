@@ -46,6 +46,12 @@ func buildStorage(persistType storage.StorageType, requestedConfig string) stora
 		return storage.NewNoneStorage()
 	case storage.FILE:
 		return storage.NewFileStorage(requestedConfig)
+	case storage.SQLITE:
+		s, err := storage.NewSQLiteStorage(requestedConfig)
+		if err != nil {
+			panic(err)
+		}
+		return s
 	default:
 		return storage.NewFileStorage("")
 	}
