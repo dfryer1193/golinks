@@ -9,6 +9,8 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+var _ Storage = (*SQLiteStorage)(nil)
+
 type SQLiteStorage struct {
 	db *sql.DB
 }
@@ -48,6 +50,20 @@ func (s *SQLiteStorage) Read() (map[string]string, error) {
 	}
 
 	return links, nil
+}
+
+func (s *SQLiteStorage) Get(key string) (string, bool) {
+	var target string
+	err := s.db.QueryRow("SELECT target FROM links WHERE key = ?", key).Scan(&target)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return "", false
+		}
+		log.Error().Err(err).Msg("failed to get link")
+		return "", false
+	}
+
+	return target, true
 }
 
 func (s *SQLiteStorage) Put(key string, target string) {
