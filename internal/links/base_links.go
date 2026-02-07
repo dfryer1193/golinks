@@ -85,8 +85,10 @@ func (l *BaseLinkMap) Delete(key string) error {
 	return nil
 }
 
-func (l *BaseLinkMap) Update(key string, target *url.URL) {
+func (l *BaseLinkMap) Update(key string, target *url.URL) error {
 	l.store.Update(key, target.String())
+
+	return nil
 }
 
 func (l *BaseLinkMap) ReplaceAll(reader io.Reader) error {

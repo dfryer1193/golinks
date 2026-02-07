@@ -28,10 +28,10 @@ type alfredResponse struct {
 }
 
 type ApiHandler struct {
-	linkMap *links.LinkMap
+	linkMap links.LinkMap
 }
 
-func NewApiHandler(linkMap *links.LinkMap) *ApiHandler {
+func NewApiHandler(linkMap links.LinkMap) *ApiHandler {
 	return &ApiHandler{linkMap: linkMap}
 }
 

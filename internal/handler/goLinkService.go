@@ -5,6 +5,7 @@ import (
 
 	"github.com/dfryer1193/golinks/config"
 	"github.com/dfryer1193/golinks/internal/links"
+	"github.com/dfryer1193/golinks/internal/links/storage"
 	"github.com/dfryer1193/mjolnir/utils/errorx"
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
@@ -12,14 +13,21 @@ import (
 
 // GolinkHandler handles all incoming/outgoing http requests for go links.
 type GolinkHandler struct {
-	linkMap         *links.LinkMap
+	linkMap         links.LinkMap
 	apiHandler      *ApiHandler
 	frontendHandler *FrontendHandler
 }
 
 // NewGoLinkService returns a reference to a new instance of a GolinkHandler
 func NewGoLinkService(router *chi.Mux, cfg *config.Config) {
-	linkMap := links.NewLinkMap(cfg.StorageType, cfg.ConfigFile)
+	var linkMap links.LinkMap
+
+	if cfg.StorageType == storage.SQLITE {
+		linkMap = links.NewBaseLinkMap(cfg.StorageType, cfg.ConfigFile)
+	} else {
+		linkMap = links.NewCachingLinkMap(cfg.StorageType, cfg.ConfigFile)
+	}
+
 	apiHandler := NewApiHandler(linkMap)
 	frontendHandler := NewFrontendHandler()
 	service := &GolinkHandler{
