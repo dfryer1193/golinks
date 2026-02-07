@@ -2,6 +2,7 @@ package storage
 
 import (
 	"database/sql"
+	"fmt"
 	"io"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -50,7 +51,7 @@ func (s *SQLiteStorage) Read() (map[string]string, error) {
 }
 
 func (s *SQLiteStorage) Put(key string, target string) {
-	if _, err := s.db.Exec("INSERT INTO links (key, target) VALUES (?, ?)", key, target); err != nil {
+	if _, err := s.db.Exec("INSERT OR REPLACE INTO links (key, target) VALUES (?, ?)", key, target); err != nil {
 		log.Error().Err(err).Msg("failed to insert link")
 	}
 }
@@ -73,6 +74,39 @@ func (s *SQLiteStorage) GetReloadChannel() <-chan bool {
 }
 
 func (s *SQLiteStorage) ReplaceConfig(reader io.Reader) (map[string]string, error) {
-	// This is not applicable to SQLite storage, so we'll return an empty map and no error.
-	return make(map[string]string), nil
+	// Parse the input reader to get the new links
+	newLinks, err := parseLinksFile(reader)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse links file: %w", err)
+	}
+
+	// Clear the existing links table
+	if _, err := s.db.Exec("DELETE FROM links"); err != nil {
+		return nil, fmt.Errorf("failed to clear existing links: %w", err)
+	}
+
+	// Insert all new links into the database
+	tx, err := s.db.Begin()
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	stmt, err := tx.Prepare("INSERT INTO links (key, target) VALUES (?, ?)")
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare statement: %w", err)
+	}
+	defer stmt.Close()
+
+	for key, target := range newLinks {
+		if _, err := stmt.Exec(key, target); err != nil {
+			return nil, fmt.Errorf("failed to insert link %s: %w", key, err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return newLinks, nil
 }

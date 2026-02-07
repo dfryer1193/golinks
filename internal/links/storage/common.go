@@ -1,13 +1,16 @@
 package storage
 
 import (
-	"github.com/rs/zerolog/log"
 	"io"
 	"strings"
+
+	"github.com/rs/zerolog/log"
 )
 
 type Storage interface {
 	Read() (map[string]string, error)
+	Get(key string) (string, bool)
+	// TODO: Make this return an error
 	Put(key string, target string)
 	Delete(key string)
 	Update(key string, target string)
