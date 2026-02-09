@@ -9,7 +9,7 @@ import (
 )
 
 func TestLinkMap_Delete(t *testing.T) {
-	links := NewLinkMap(storage.NONE, "")
+	links := NewCachingLinkMap(storage.NONE, "")
 	links.Put("foo", &url.URL{Scheme: "https", Host: "foo.com"})
 	links.Put("bar", &url.URL{Scheme: "https", Host: "bar.com"})
 	tests := []struct {
@@ -32,7 +32,7 @@ func TestLinkMap_Delete(t *testing.T) {
 }
 
 func TestLinkMap_Get(t *testing.T) {
-	links := NewLinkMap(storage.NONE, "")
+	links := NewCachingLinkMap(storage.NONE, "")
 	links.Put("foo", &url.URL{Scheme: "https", Host: "foo.com"})
 	links.Put("bar", &url.URL{Scheme: "https", Host: "bar.com"})
 	tests := []struct {
@@ -65,7 +65,7 @@ func TestLinkMap_Get(t *testing.T) {
 }
 
 func TestLinkMap_GetFiltered(t *testing.T) {
-	links := NewLinkMap(storage.NONE, "")
+	links := NewCachingLinkMap(storage.NONE, "")
 	links.Put("foo", &url.URL{Scheme: "https", Host: "foo.com"})
 	links.Put("bar", &url.URL{Scheme: "https", Host: "bar.com"})
 	links.Put("foobar", &url.URL{Scheme: "https", Host: "foobar.com"})
@@ -108,7 +108,7 @@ func TestLinkMap_GetFiltered(t *testing.T) {
 }
 
 func TestLinkMap_Put(t *testing.T) {
-	links := NewLinkMap(storage.NONE, "")
+	links := NewCachingLinkMap(storage.NONE, "")
 	tests := []struct {
 		name  string
 		key   string
@@ -128,7 +128,7 @@ func TestLinkMap_Put(t *testing.T) {
 }
 
 func TestLinkMap_Update(t *testing.T) {
-	links := NewLinkMap(storage.NONE, "")
+	links := NewCachingLinkMap(storage.NONE, "")
 	tests := []struct {
 		name  string
 		key   string

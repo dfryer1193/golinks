@@ -1,13 +1,16 @@
 package storage
 
 import (
-	"github.com/rs/zerolog/log"
 	"io"
 	"strings"
+
+	"github.com/rs/zerolog/log"
 )
 
 type Storage interface {
 	Read() (map[string]string, error)
+	Get(key string) (string, bool)
+	// TODO: Make this return an error
 	Put(key string, target string)
 	Delete(key string)
 	Update(key string, target string)
@@ -20,10 +23,11 @@ type StorageType int
 const (
 	NONE StorageType = iota
 	FILE
+	SQLITE
 )
 
 func (st StorageType) String() string {
-	return [...]string{"NONE", "FILE"}[st]
+	return [...]string{"NONE", "FILE", "SQLITE"}[st]
 }
 
 func FromString(s string) StorageType {
@@ -33,6 +37,8 @@ func FromString(s string) StorageType {
 		return NONE
 	case "FILE":
 		return FILE
+	case "SQLITE":
+		return SQLITE
 	default:
 		log.Fatal().Str("requestedStorageType", s).Msg("Storage type not recognized")
 	}

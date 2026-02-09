@@ -3,9 +3,10 @@ module github.com/dfryer1193/golinks
 go 1.23
 
 require (
-	github.com/dfryer1193/mjolnir v1.0.2
+	github.com/dfryer1193/mjolnir v1.2.2
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/go-chi/chi/v5 v5.2.1
+	github.com/mattn/go-sqlite3 v1.14.33
 	github.com/rs/zerolog v1.33.0
 )
 

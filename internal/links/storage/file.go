@@ -14,6 +14,8 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+var _ Storage = (*FileStorage)(nil)
+
 type FileStorage struct {
 	configPath    string
 	fileLock      *sync.RWMutex
@@ -129,6 +131,35 @@ func (f *FileStorage) Read() (map[string]string, error) {
 	defer filePtr.Close()
 
 	return parseLinksFile(filePtr)
+}
+
+func (f *FileStorage) Get(key string) (string, bool) {
+	f.fileLock.RLock()
+	defer f.fileLock.RUnlock()
+
+	file, err := os.OpenFile(f.configPath, os.O_RDONLY, 0600)
+	defer file.Close()
+	if err != nil {
+		log.
+			Error().
+			Err(err).
+			Str("file path", f.configPath).
+			Msg("Failed to open file for reading")
+		return "", false
+	}
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		txt := scanner.Text()
+		if strings.HasPrefix(txt, key+" ") {
+			parts := strings.SplitN(txt, " ", 2)
+			if len(parts) == 2 {
+				return parts[1], true
+			}
+		}
+	}
+
+	return "", false
 }
 
 // Put appends a new entry to the link config. If the entry already exists, it will be duplicated in the file.
