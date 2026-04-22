@@ -45,6 +45,7 @@ func cleanup() {
 func TestFileStorage_Delete(t *testing.T) {
 	createTestFile()
 	f := NewFileStorage(TEST_DIR + "/" + TEST_FILE)
+	defer f.Close()
 	tests := []struct {
 		name    string
 		key     string
@@ -56,7 +57,9 @@ func TestFileStorage_Delete(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			f.Delete(tt.key)
+			if err := f.Delete(tt.key); err != nil {
+				t.Fatalf("Delete() error = %v", err)
+			}
 			entries, err := f.Read()
 			if err != nil {
 				log.Fatal().Err(err).Msg("Failed to read entries after deletion")
@@ -73,6 +76,7 @@ func TestFileStorage_Delete(t *testing.T) {
 func TestFileStorage_Put(t *testing.T) {
 	createTestFile()
 	f := NewFileStorage(TEST_DIR + "/" + TEST_FILE)
+	defer f.Close()
 	tests := []struct {
 		name   string
 		key    string
@@ -83,7 +87,9 @@ func TestFileStorage_Put(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			f.Put(tt.key, tt.target)
+			if err := f.Put(tt.key, tt.target); err != nil {
+				t.Fatalf("Put() error = %v", err)
+			}
 			entries, err := f.Read()
 			if err != nil {
 				log.Fatal().Err(err).Msg("Failed to read entries after put")
@@ -100,6 +106,7 @@ func TestFileStorage_Put(t *testing.T) {
 func TestFileStorage_Read(t *testing.T) {
 	createTestFile()
 	f := NewFileStorage(TEST_DIR + "/" + TEST_FILE)
+	defer f.Close()
 	tests := []struct {
 		name      string
 		operation string
@@ -113,13 +120,17 @@ func TestFileStorage_Read(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			var err error
 			switch tt.operation {
 			case "put":
-				f.Put(tt.key, tt.target)
+				err = f.Put(tt.key, tt.target)
 			case "update":
-				f.Update(tt.key, tt.target)
+				err = f.Update(tt.key, tt.target)
 			case "delete":
-				f.Delete(tt.key)
+				err = f.Delete(tt.key)
+			}
+			if err != nil {
+				t.Fatalf("%s error = %v", tt.operation, err)
 			}
 
 			actual, err := f.Read()
@@ -137,6 +148,7 @@ func TestFileStorage_Read(t *testing.T) {
 func TestFileStorage_Update(t *testing.T) {
 	createTestFile()
 	f := NewFileStorage(TEST_DIR + "/" + TEST_FILE)
+	defer f.Close()
 	tests := []struct {
 		name   string
 		key    string
@@ -147,7 +159,9 @@ func TestFileStorage_Update(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			f.Put(tt.key, tt.target)
+			if err := f.Put(tt.key, tt.target); err != nil {
+				t.Fatalf("Put() error = %v", err)
+			}
 			entries, err := f.Read()
 			if err != nil {
 				log.Fatal().Err(err).Msg("Failed to read entries after update")

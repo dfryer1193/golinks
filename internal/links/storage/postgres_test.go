@@ -2,36 +2,46 @@ package storage
 
 import (
 	"database/sql"
-	"fmt"
 	"os"
 	"testing"
+
+	_ "github.com/lib/pq"
 )
 
-func TestSQLiteStorage(t *testing.T) {
-	dbPath := "test.db"
-	defer os.Remove(dbPath)
+func TestPostgreSQLStorage(t *testing.T) {
+	// Skip if DATABASE_URL not set (for CI/CD environments without PostgreSQL)
+	connStr := os.Getenv("DATABASE_URL")
+	if connStr == "" {
+		t.Skip("DATABASE_URL not set, skipping PostgreSQL tests")
+	}
 
 	// Create schema manually since we removed auto-schema creation
-	// Use proper DSN with foreign keys enabled
-	connStr := fmt.Sprintf("%s?_foreign_keys=1", dbPath)
-	db, err := sql.Open("sqlite3", connStr)
+	db, err := sql.Open("postgres", connStr)
 	if err != nil {
 		t.Fatalf("sql.Open() error = %v", err)
 	}
+	defer db.Close()
+
+	// Clean up test table if exists
+	_, err = db.Exec(`DROP TABLE IF EXISTS links`)
+	if err != nil {
+		t.Fatalf("DROP TABLE error = %v", err)
+	}
+
+	// Create schema
 	_, err = db.Exec(`
 		CREATE TABLE IF NOT EXISTS links (
 			key TEXT PRIMARY KEY,
 			target TEXT NOT NULL
 		)
 	`)
-	db.Close()
 	if err != nil {
 		t.Fatalf("CREATE TABLE error = %v", err)
 	}
 
-	storage, err := NewSQLiteStorage(dbPath)
+	storage, err := NewPostgresStorage(connStr)
 	if err != nil {
-		t.Fatalf("NewSQLiteStorage() error = %v", err)
+		t.Fatalf("NewPostgresStorage() error = %v", err)
 	}
 	defer storage.Close()
 
@@ -50,6 +60,15 @@ func TestSQLiteStorage(t *testing.T) {
 	}
 	if links["test"] != "https://example.com" {
 		t.Errorf("Read() got %v, want https://example.com", links["test"])
+	}
+
+	// Test Get
+	target, exists := storage.Get("test")
+	if !exists {
+		t.Errorf("Get() key not found")
+	}
+	if target != "https://example.com" {
+		t.Errorf("Get() got %v, want https://example.com", target)
 	}
 
 	// Test Update
@@ -74,5 +93,11 @@ func TestSQLiteStorage(t *testing.T) {
 	}
 	if len(links) != 0 {
 		t.Errorf("Read() got %v links, want 0", len(links))
+	}
+
+	// Clean up test table
+	_, err = db.Exec(`DROP TABLE IF EXISTS links`)
+	if err != nil {
+		t.Fatalf("DROP TABLE cleanup error = %v", err)
 	}
 }

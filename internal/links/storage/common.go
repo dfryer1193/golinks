@@ -10,12 +10,12 @@ import (
 type Storage interface {
 	Read() (map[string]string, error)
 	Get(key string) (string, bool)
-	// TODO: Make this return an error
-	Put(key string, target string)
-	Delete(key string)
-	Update(key string, target string)
+	Put(key string, target string) error
+	Delete(key string) error
+	Update(key string, target string) error
 	GetReloadChannel() <-chan bool
 	ReplaceConfig(reader io.Reader) (map[string]string, error)
+	Close() error
 }
 
 type StorageType int
@@ -24,10 +24,11 @@ const (
 	NONE StorageType = iota
 	FILE
 	SQLITE
+	POSTGRES
 )
 
 func (st StorageType) String() string {
-	return [...]string{"NONE", "FILE", "SQLITE"}[st]
+	return [...]string{"NONE", "FILE", "SQLITE", "POSTGRES"}[st]
 }
 
 func FromString(s string) StorageType {
@@ -39,6 +40,8 @@ func FromString(s string) StorageType {
 		return FILE
 	case "SQLITE":
 		return SQLITE
+	case "POSTGRES":
+		return POSTGRES
 	default:
 		log.Fatal().Str("requestedStorageType", s).Msg("Storage type not recognized")
 	}

@@ -19,10 +19,10 @@ type GolinkHandler struct {
 }
 
 // NewGoLinkService returns a reference to a new instance of a GolinkHandler
-func NewGoLinkService(router *chi.Mux, cfg *config.Config) {
+func NewGoLinkService(router *chi.Mux, cfg *config.Config) *GolinkHandler {
 	var linkMap links.LinkMap
 
-	if cfg.StorageType == storage.SQLITE {
+	if cfg.StorageType == storage.SQLITE || cfg.StorageType == storage.POSTGRES {
 		linkMap = links.NewBaseLinkMap(cfg.StorageType, cfg.ConfigFile)
 	} else {
 		linkMap = links.NewCachingLinkMap(cfg.StorageType, cfg.ConfigFile)
@@ -55,6 +55,8 @@ func NewGoLinkService(router *chi.Mux, cfg *config.Config) {
 		r.Get("/update", errorx.ErrorHandler(frontendHandler.serveNewForm))
 		r.Get("/*", errorx.ErrorHandler(service.handleGet))
 	})
+
+	return service
 }
 
 func (h *GolinkHandler) handleGet(w http.ResponseWriter, r *http.Request) *errorx.ApiError {
@@ -69,4 +71,8 @@ func (h *GolinkHandler) handleGet(w http.ResponseWriter, r *http.Request) *error
 	}
 
 	return h.frontendHandler.serveNewForm(w, r)
+}
+
+func (h *GolinkHandler) Close() error {
+	return h.linkMap.Close()
 }
