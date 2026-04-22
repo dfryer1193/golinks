@@ -44,14 +44,26 @@ func (h *ApiHandler) postLink(w http.ResponseWriter, r *http.Request) *errorx.Ap
 	if err != nil {
 		return errorx.BadRequestErr(fmt.Errorf("invalid request body: %w", err))
 	}
+	
+	// Validate target is not empty
+	if target.Target == "" {
+		return errorx.BadRequestErr(fmt.Errorf("target is required"))
+	}
+	
 	newEntry := &models.Entry{
 		Path:   path,
 		Target: target.Target,
 	}
 
+	// Parse and validate URL
 	targetUrl, err := url.Parse(target.Target)
 	if err != nil {
 		return errorx.BadRequestErr(fmt.Errorf("invalid target URL %s: %w", target.Target, err))
+	}
+	
+	// Require absolute URLs (must have scheme and host)
+	if targetUrl.Scheme == "" || targetUrl.Host == "" {
+		return errorx.BadRequestErr(fmt.Errorf("target must be an absolute URL with scheme and host (e.g., https://example.com)"))
 	}
 
 	var oldEntry *models.Entry

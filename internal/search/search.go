@@ -1,6 +1,9 @@
 package search
 
-import "slices"
+import (
+	"slices"
+	"strings"
+)
 
 const shortcutEditThreshold = 3
 
@@ -9,28 +12,42 @@ type Result struct {
 	Score int
 }
 
+// StringSearch performs fuzzy search using Levenshtein distance (edit distance).
+// Returns results with edit distance <= shortcutEditThreshold (3).
+// This is optimized for typo-tolerant matching (e.g., "githb" -> "github"),
+// and also includes substring matches.
 func StringSearch(query string, options []string) []Result {
-	results := make([]Result, len(options))
-	for i, val := range options {
+	results := make([]Result, 0, len(options))
+	
+	for _, val := range options {
 		score := computeLevenshtein(query, val)
+		
+		// Also check for substring matches (case-insensitive)
+		// Substring matches get a score of 0 for better ranking
+		if strings.Contains(strings.ToLower(val), strings.ToLower(query)) {
+			score = 0
+		}
+		
 		result := Result{
 			Value: val,
 			Score: score,
 		}
-		results[i] = result
+		results = append(results, result)
 	}
 
 	slices.SortStableFunc(results, func(a, b Result) int {
 		return a.Score - b.Score // Lower scores are closer matches
 	})
 
-	for i, result := range results {
-		if result.Score > shortcutEditThreshold {
-			return results[:i]
+	// Filter out results with score > threshold
+	filtered := make([]Result, 0)
+	for _, result := range results {
+		if result.Score <= shortcutEditThreshold {
+			filtered = append(filtered, result)
 		}
 	}
 
-	return results
+	return filtered
 }
 
 func computeLevenshtein(query, value string) int {
