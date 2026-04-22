@@ -104,8 +104,8 @@ func TestMigratorLoadMigrations(t *testing.T) {
 	// Verify migrations are sorted by version
 	for i := 1; i < len(migrator.migrations); i++ {
 		if migrator.migrations[i-1].Version >= migrator.migrations[i].Version {
-			t.Errorf("Migrations not sorted: %s >= %s", 
-				migrator.migrations[i-1].Version, 
+			t.Errorf("Migrations not sorted: %s >= %s",
+				migrator.migrations[i-1].Version,
 				migrator.migrations[i].Version)
 		}
 	}
