@@ -4,24 +4,35 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/dfryer1193/golinks/config"
-	"github.com/dfryer1193/golinks/internal/handler"
-	"github.com/dfryer1193/mjolnir/router"
 	"net/http"
 	"os"
 	"os/signal"
 	"time"
+
+	"github.com/dfryer1193/golinks/config"
+	"github.com/dfryer1193/golinks/internal/handler"
+	"github.com/dfryer1193/mjolnir/router"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "migrate" {
+		runMigration()
+		return
+	}
+
 	cfg := config.GetConfig()
 	zerolog.SetGlobalLevel(cfg.LogLevel)
 
 	r := router.New()
-	handler.NewGoLinkService(r, cfg)
+	service := handler.NewGoLinkService(r, cfg)
+	defer func() {
+		if err := service.Close(); err != nil {
+			log.Error().Err(err).Msg("Failed to close service")
+		}
+	}()
 
 	srv := &http.Server{
 		Addr:    fmt.Sprintf(":%d", cfg.Port),
@@ -48,4 +59,9 @@ func main() {
 	}
 
 	log.Info().Msg("Server stopped")
+}
+
+func runMigration() {
+	fmt.Println("Running migration...")
+	// TODO: Implement migration logic
 }
