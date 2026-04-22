@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"database/sql"
 	"os"
 	"testing"
 )
@@ -8,6 +9,22 @@ import (
 func TestSQLiteStorage(t *testing.T) {
 	dbPath := "test.db"
 	defer os.Remove(dbPath)
+
+	// Create schema manually since we removed auto-schema creation
+	db, err := sql.Open("sqlite3", dbPath)
+	if err != nil {
+		t.Fatalf("sql.Open() error = %v", err)
+	}
+	_, err = db.Exec(`
+		CREATE TABLE IF NOT EXISTS links (
+			key TEXT PRIMARY KEY,
+			target TEXT NOT NULL
+		)
+	`)
+	db.Close()
+	if err != nil {
+		t.Fatalf("CREATE TABLE error = %v", err)
+	}
 
 	storage, err := NewSQLiteStorage(dbPath)
 	if err != nil {

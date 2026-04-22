@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"io"
+	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/rs/zerolog/log"
@@ -16,21 +17,52 @@ type SQLiteStorage struct {
 }
 
 func NewSQLiteStorage(dbPath string) (*SQLiteStorage, error) {
-	db, err := sql.Open("sqlite3", dbPath)
+	// Build connection string with pragmas for production use
+	connStr := fmt.Sprintf(
+		"%s?_journal_mode=WAL&_busy_timeout=5000&_synchronous=NORMAL&_foreign_keys=on",
+		dbPath,
+	)
+
+	db, err := sql.Open("sqlite3", connStr)
 	if err != nil {
+		return nil, fmt.Errorf("failed to open database: %w", err)
+	}
+
+	// Configure connection pool for SQLite
+	// SQLite benefits from a single connection for writes
+	db.SetMaxOpenConns(1)
+	db.SetMaxIdleConns(1)
+	db.SetConnMaxLifetime(time.Hour)
+
+	// Verify connection
+	if err := db.Ping(); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("failed to ping database: %w", err)
+	}
+
+	storage := &SQLiteStorage{db: db}
+
+	// Validate schema exists
+	if err := storage.validateSchema(); err != nil {
+		db.Close()
 		return nil, err
 	}
 
-	if _, err := db.Exec(`
-		CREATE TABLE IF NOT EXISTS links (
-			key TEXT PRIMARY KEY,
-			target TEXT NOT NULL
-		)
-	`); err != nil {
-		return nil, err
-	}
+	return storage, nil
+}
 
-	return &SQLiteStorage{db: db}, nil
+func (s *SQLiteStorage) validateSchema() error {
+	var count int
+	err := s.db.QueryRow(
+		"SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='links'",
+	).Scan(&count)
+	if err != nil {
+		return fmt.Errorf("failed to check schema: %w", err)
+	}
+	if count == 0 {
+		return fmt.Errorf("schema not initialized: please run 'golinks migrate -storage SQLITE -config <db-path>' first")
+	}
+	return nil
 }
 
 func (s *SQLiteStorage) Read() (map[string]string, error) {
