@@ -28,3 +28,16 @@ go.work
 
 # IDE files
 .idea/
+
+# Test artifacts
+test_*.db
+test_*.db-shm
+test_*.db-wal
+test_*.txt.bak
+test_results_*.log
+server_*.log
+TEST_REPORT*.md
+test_golinks.sh
+
+# Build artifacts
+golinks
