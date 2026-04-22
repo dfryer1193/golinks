@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"embed"
 	"fmt"
-	"path/filepath"
+	"path"
 	"sort"
 	"strings"
 	"time"
@@ -67,7 +67,7 @@ func (m *Migrator) loadMigrations() error {
 			continue
 		}
 
-		content, err := fs.ReadFile(filepath.Join(dir, entry.Name()))
+		content, err := fs.ReadFile(path.Join(dir, entry.Name()))
 		if err != nil {
 			return fmt.Errorf("failed to read migration file %s: %w", entry.Name(), err)
 		}
