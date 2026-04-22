@@ -40,6 +40,12 @@ func buildStorage(persistType storage.StorageType, requestedConfig string) stora
 			panic(err)
 		}
 		return s
+	case storage.POSTGRES:
+		s, err := storage.NewPostgresStorage(requestedConfig)
+		if err != nil {
+			panic(err)
+		}
+		return s
 	default:
 		return storage.NewFileStorage("")
 	}

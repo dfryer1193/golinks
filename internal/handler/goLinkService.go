@@ -22,7 +22,7 @@ type GolinkHandler struct {
 func NewGoLinkService(router *chi.Mux, cfg *config.Config) *GolinkHandler {
 	var linkMap links.LinkMap
 
-	if cfg.StorageType == storage.SQLITE {
+	if cfg.StorageType == storage.SQLITE || cfg.StorageType == storage.POSTGRES {
 		linkMap = links.NewBaseLinkMap(cfg.StorageType, cfg.ConfigFile)
 	} else {
 		linkMap = links.NewCachingLinkMap(cfg.StorageType, cfg.ConfigFile)

@@ -25,7 +25,7 @@ Usage: golinks [-port 8080] [-config ./links]
 
 -h                                      Show this help message
 -port <number>                          The port to listen on (default: 8080)
--storage <FILE|NONE|SQLITE>             The type of storage to use for
+-storage <FILE|NONE|SQLITE|POSTGRES>    The type of storage to use for
                                         persistence. Defaults to "FILE". Storage
                                         types:
                                             * NONE: Provides no persistence
@@ -36,6 +36,11 @@ Usage: golinks [-port 8080] [-config ./links]
                                                       to a sqlite db. The path
                                                       to the db is specified by
                                                       the -config option.
+                                            * POSTGRES: Persists shortcut entries
+                                                        to a PostgreSQL database.
+                                                        Connection string via
+                                                        -config option or
+                                                        DATABASE_URL env var.
 -config <absolute path to config file>  The path to the preferred config file.
                                         If this file is not present, falls back
                                         to default locations in the following
@@ -43,6 +48,9 @@ Usage: golinks [-port 8080] [-config ./links]
                                             * "./links"
                                             * "~/.config/golinks/links"
                                             * "/etc/golinks/links"
+                                        For POSTGRES storage, this should be a
+                                        connection string (or use DATABASE_URL
+                                        environment variable).
 -level <loglevel>                       The loglevel to log at. Defaults to
                                         "INFO"
 
@@ -99,9 +107,19 @@ func GetConfig() *Config {
 		os.Exit(1)
 	}
 
+	// For PostgreSQL, use DATABASE_URL env var if config file not specified
+	storageType := storage.FromString(storageTypeString)
+	if storageType == storage.POSTGRES && configFile == "" {
+		configFile = os.Getenv("DATABASE_URL")
+		if configFile == "" {
+			fmt.Println("PostgreSQL storage requires either -config flag or DATABASE_URL environment variable")
+			os.Exit(1)
+		}
+	}
+
 	return &Config{
 		Port:        port,
-		StorageType: storage.FromString(storageTypeString),
+		StorageType: storageType,
 		ConfigFile:  configFile,
 		LogLevel:    level,
 	}
