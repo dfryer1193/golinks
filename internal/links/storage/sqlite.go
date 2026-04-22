@@ -19,7 +19,7 @@ type SQLiteStorage struct {
 func NewSQLiteStorage(dbPath string) (*SQLiteStorage, error) {
 	// Build connection string with pragmas for production use
 	connStr := fmt.Sprintf(
-		"%s?_journal_mode=WAL&_busy_timeout=5000&_synchronous=NORMAL&_foreign_keys=on",
+		"%s?_journal_mode=WAL&_busy_timeout=5000&_synchronous=NORMAL&_foreign_keys=1",
 		dbPath,
 	)
 

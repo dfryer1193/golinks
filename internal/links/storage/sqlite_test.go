@@ -2,6 +2,7 @@ package storage
 
 import (
 	"database/sql"
+	"fmt"
 	"os"
 	"testing"
 )
@@ -11,7 +12,9 @@ func TestSQLiteStorage(t *testing.T) {
 	defer os.Remove(dbPath)
 
 	// Create schema manually since we removed auto-schema creation
-	db, err := sql.Open("sqlite3", dbPath)
+	// Use proper DSN with foreign keys enabled
+	connStr := fmt.Sprintf("%s?_foreign_keys=1", dbPath)
+	db, err := sql.Open("sqlite3", connStr)
 	if err != nil {
 		t.Fatalf("sql.Open() error = %v", err)
 	}

@@ -2,6 +2,7 @@ package migrations
 
 import (
 	"database/sql"
+	"fmt"
 	"os"
 	"testing"
 
@@ -12,7 +13,9 @@ func TestMigratorSQLite(t *testing.T) {
 	dbPath := "test_migrations.db"
 	defer os.Remove(dbPath)
 
-	db, err := sql.Open("sqlite3", dbPath)
+	// Use proper DSN with foreign keys enabled
+	connStr := fmt.Sprintf("%s?_foreign_keys=1", dbPath)
+	db, err := sql.Open("sqlite3", connStr)
 	if err != nil {
 		t.Fatalf("Failed to open database: %v", err)
 	}
@@ -77,7 +80,7 @@ func TestMigratorSQLite(t *testing.T) {
 }
 
 func TestMigratorInvalidDBType(t *testing.T) {
-	db, err := sql.Open("sqlite3", ":memory:")
+	db, err := sql.Open("sqlite3", ":memory:?_foreign_keys=1")
 	if err != nil {
 		t.Fatalf("Failed to open database: %v", err)
 	}
@@ -90,7 +93,7 @@ func TestMigratorInvalidDBType(t *testing.T) {
 }
 
 func TestMigratorLoadMigrations(t *testing.T) {
-	db, err := sql.Open("sqlite3", ":memory:")
+	db, err := sql.Open("sqlite3", ":memory:?_foreign_keys=1")
 	if err != nil {
 		t.Fatalf("Failed to open database: %v", err)
 	}

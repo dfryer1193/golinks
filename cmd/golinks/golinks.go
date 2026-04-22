@@ -87,11 +87,16 @@ func runMigration(statusCmd bool) {
 	
 	if cfg.StorageType == storage.SQLITE {
 		dbType = "sqlite"
-		connStr = cfg.ConfigFile
-		if connStr == "" {
+		dbPath := cfg.ConfigFile
+		if dbPath == "" {
 			fmt.Println("Error: SQLite requires -config flag or config file path")
 			os.Exit(1)
 		}
+		// Add SQLite pragmas for proper operation
+		connStr = fmt.Sprintf(
+			"%s?_journal_mode=WAL&_busy_timeout=5000&_synchronous=NORMAL&_foreign_keys=1",
+			dbPath,
+		)
 	} else if cfg.StorageType == storage.POSTGRES {
 		dbType = "postgres"
 		connStr = cfg.ConfigFile
