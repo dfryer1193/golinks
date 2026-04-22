@@ -163,7 +163,7 @@ func (f *FileStorage) Get(key string) (string, bool) {
 }
 
 // Put appends a new entry to the link config. If the entry already exists, it will be duplicated in the file.
-func (f *FileStorage) Put(key string, target string) {
+func (f *FileStorage) Put(key string, target string) error {
 	f.fileLock.Lock()
 	defer f.fileLock.Unlock()
 
@@ -175,7 +175,7 @@ func (f *FileStorage) Put(key string, target string) {
 			Err(err).
 			Str("file path", f.configPath).
 			Msg("Failed to open file for writing")
-		return
+		return err
 	}
 
 	if _, err := file.WriteString(key + " " + target + "\n"); err != nil {
@@ -186,10 +186,12 @@ func (f *FileStorage) Put(key string, target string) {
 			Str("key", key).
 			Str("target", target).
 			Msg("Failed to write to file")
+		return err
 	}
+	return nil
 }
 
-func (f *FileStorage) Delete(key string) {
+func (f *FileStorage) Delete(key string) error {
 	changed, err := f.updateEntry(key, "")
 	if err != nil {
 		log.
@@ -197,6 +199,7 @@ func (f *FileStorage) Delete(key string) {
 			Err(err).
 			Str("key", key).
 			Msg("Failed to delete key")
+		return err
 	}
 
 	if changed {
@@ -207,11 +210,13 @@ func (f *FileStorage) Delete(key string) {
 				Err(err).
 				Str("key", key).
 				Msg("Failed to replace config file in place after delete")
+			return err
 		}
 	}
+	return nil
 }
 
-func (f *FileStorage) Update(key string, target string) {
+func (f *FileStorage) Update(key string, target string) error {
 	changed, err := f.updateEntry(key, target)
 	if err != nil {
 		log.
@@ -220,6 +225,7 @@ func (f *FileStorage) Update(key string, target string) {
 			Str("key", key).
 			Str("target", target).
 			Msg("Failed to update key")
+		return err
 	}
 
 	if changed {
@@ -231,8 +237,10 @@ func (f *FileStorage) Update(key string, target string) {
 				Str("key", key).
 				Str("target", target).
 				Msg("Failed to replace config file in place after update")
+			return err
 		}
 	}
+	return nil
 }
 
 func (f *FileStorage) ReplaceConfig(reader io.Reader) (map[string]string, error) {
@@ -343,4 +351,11 @@ func (f *FileStorage) backupAndReplace(reader io.Reader) error {
 
 func (f *FileStorage) GetReloadChannel() <-chan bool {
 	return f.reloadChannel
+}
+
+func (f *FileStorage) Close() error {
+	if f.watcher != nil {
+		return f.watcher.Close()
+	}
+	return nil
 }
