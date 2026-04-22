@@ -9,13 +9,25 @@ const shortcutEditThreshold = 3
 
 type Result struct {
 	Value string
+	// Score represents the match quality:
+	// - 0 for substring matches (best)
+	// - Levenshtein edit distance for other matches (lower is better)
 	Score int
 }
 
-// StringSearch performs fuzzy search using Levenshtein distance (edit distance).
-// Returns results with edit distance <= shortcutEditThreshold (3).
-// This is optimized for typo-tolerant matching (e.g., "githb" -> "github"),
-// and also includes substring matches.
+// StringSearch performs fuzzy search with both Levenshtein distance and substring matching.
+//
+// Scoring behavior:
+//   - Substring matches (case-insensitive): Score = 0 (highest priority)
+//   - Levenshtein distance: Score = edit distance between query and option
+//
+// Only results with Score <= shortcutEditThreshold (3) are returned.
+// Results are sorted by Score (lower is better).
+//
+// Examples:
+//   - "stack" -> "stackoverflow": Score = 0 (substring match)
+//   - "githb" -> "github": Score = 1 (1 edit: insert 'u')
+//   - "doc" -> "docs": Score = 1 (1 edit: insert 's')
 func StringSearch(query string, options []string) []Result {
 	results := make([]Result, 0, len(options))
 	
