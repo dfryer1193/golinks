@@ -239,26 +239,48 @@ func (m *Migrator) applyMigration(migration Migration) error {
 // Returns an unlock function that must be called to release the lock
 func (m *Migrator) acquireMigrationLock() (func() error, error) {
 	if m.dbType == "postgres" {
-		// PostgreSQL: Use advisory lock
+		// PostgreSQL: Use non-blocking advisory lock with retry
 		// Lock ID: 123456789 (arbitrary but consistent for this application)
 		const lockID = 123456789
+		const maxRetries = 60 // 60 attempts
+		const retryDelay = 500 * time.Millisecond // Total ~30 seconds max wait
 		
-		_, err := m.db.Exec("SELECT pg_advisory_lock($1)", lockID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to acquire advisory lock: %w", err)
-		}
-		
-		unlock := func() error {
-			_, err := m.db.Exec("SELECT pg_advisory_unlock($1)", lockID)
+		for i := 0; i < maxRetries; i++ {
+			var acquired bool
+			err := m.db.QueryRow("SELECT pg_try_advisory_lock($1)", lockID).Scan(&acquired)
 			if err != nil {
-				log.Warn().Err(err).Msg("Failed to release advisory lock")
-				return err
+				return nil, fmt.Errorf("failed to try advisory lock: %w", err)
 			}
-			return nil
+			
+			if acquired {
+				unlock := func() error {
+					_, err := m.db.Exec("SELECT pg_advisory_unlock($1)", lockID)
+					if err != nil {
+						log.Warn().Err(err).Msg("Failed to release advisory lock")
+						return err
+					}
+					return nil
+				}
+				
+				log.Debug().Msg("Acquired PostgreSQL advisory lock for migrations")
+				return unlock, nil
+			}
+			
+			// Lock is held by another session
+			if i == maxRetries-1 {
+				return nil, fmt.Errorf("failed to acquire advisory lock after %d retries (~%v wait), another migration may be running", 
+					maxRetries, time.Duration(maxRetries)*retryDelay)
+			}
+			
+			// Log warning on first retry to give immediate feedback
+			if i == 0 {
+				log.Info().Msg("Migration lock is held by another process, waiting...")
+			}
+			
+			time.Sleep(retryDelay)
 		}
 		
-		log.Debug().Msg("Acquired PostgreSQL advisory lock for migrations")
-		return unlock, nil
+		return nil, fmt.Errorf("failed to acquire advisory lock after %d retries", maxRetries)
 	} else {
 		// SQLite: Use application-level locking via a lock table with stale lock detection
 		// Lock timeout: if a lock is older than 5 minutes, consider it stale and take over
