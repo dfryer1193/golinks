@@ -260,38 +260,41 @@ func (m *Migrator) acquireMigrationLock() (func() error, error) {
 		log.Debug().Msg("Acquired PostgreSQL advisory lock for migrations")
 		return unlock, nil
 	} else {
-		// SQLite: Use application-level locking via a lock table
+		// SQLite: Use application-level locking via a lock table with stale lock detection
+		// Lock timeout: if a lock is older than 5 minutes, consider it stale and take over
+		const lockTimeout = 5 * time.Minute
+		const maxRetries = 30
+		
 		// Create lock table if it doesn't exist
 		_, err := m.db.Exec(`
 			CREATE TABLE IF NOT EXISTS migration_lock (
 				id INTEGER PRIMARY KEY CHECK (id = 1),
-				locked_at TIMESTAMP
+				locked_at TIMESTAMP NOT NULL
 			)
 		`)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create lock table: %w", err)
 		}
 		
-		// Try to acquire lock with IMMEDIATE transaction
-		// This prevents other processes from running migrations concurrently
-		// Use a short retry loop to handle contention
-		maxRetries := 30
+		// Try to acquire lock with retry logic
 		for i := 0; i < maxRetries; i++ {
 			tx, err := m.db.Begin()
 			if err != nil {
 				return nil, fmt.Errorf("failed to begin transaction: %w", err)
 			}
 			
-			// Try to insert lock row (only one can succeed due to PRIMARY KEY)
-			result, err := tx.Exec("INSERT OR IGNORE INTO migration_lock (id, locked_at) VALUES (1, ?)", time.Now())
-			if err != nil {
-				tx.Rollback()
-				return nil, fmt.Errorf("failed to acquire lock: %w", err)
-			}
+			// Check for existing lock
+			var lockedAt time.Time
+			err = tx.QueryRow("SELECT locked_at FROM migration_lock WHERE id = 1").Scan(&lockedAt)
 			
-			rowsAffected, _ := result.RowsAffected()
-			if rowsAffected > 0 {
-				// We got the lock, commit to hold it
+			if err == sql.ErrNoRows {
+				// No lock exists, try to acquire it
+				_, err = tx.Exec("INSERT INTO migration_lock (id, locked_at) VALUES (1, ?)", time.Now())
+				if err != nil {
+					tx.Rollback()
+					return nil, fmt.Errorf("failed to insert lock: %w", err)
+				}
+				
 				if err := tx.Commit(); err != nil {
 					return nil, fmt.Errorf("failed to commit lock transaction: %w", err)
 				}
@@ -307,14 +310,53 @@ func (m *Migrator) acquireMigrationLock() (func() error, error) {
 				
 				log.Debug().Msg("Acquired SQLite migration lock")
 				return unlock, nil
+			} else if err != nil {
+				tx.Rollback()
+				return nil, fmt.Errorf("failed to check lock: %w", err)
 			}
 			
-			// Lock is held by another process, rollback and retry
+			// Lock exists, check if it's stale
+			lockAge := time.Since(lockedAt)
+			if lockAge > lockTimeout {
+				// Lock is stale, take it over
+				log.Warn().
+					Str("age", lockAge.String()).
+					Msg("Found stale migration lock, taking over (previous process may have crashed)")
+				
+				_, err = tx.Exec("UPDATE migration_lock SET locked_at = ? WHERE id = 1", time.Now())
+				if err != nil {
+					tx.Rollback()
+					return nil, fmt.Errorf("failed to update stale lock: %w", err)
+				}
+				
+				if err := tx.Commit(); err != nil {
+					return nil, fmt.Errorf("failed to commit lock takeover: %w", err)
+				}
+				
+				unlock := func() error {
+					_, err := m.db.Exec("DELETE FROM migration_lock WHERE id = 1")
+					if err != nil {
+						log.Warn().Err(err).Msg("Failed to release migration lock")
+						return err
+					}
+					return nil
+				}
+				
+				log.Debug().Msg("Acquired SQLite migration lock (stale lock takeover)")
+				return unlock, nil
+			}
+			
+			// Lock is held by active process, rollback and retry
 			tx.Rollback()
+			
+			if i == maxRetries-1 {
+				return nil, fmt.Errorf("failed to acquire migration lock after %d retries (lock held for %s, another process may be running migrations)", maxRetries, lockAge)
+			}
+			
 			time.Sleep(100 * time.Millisecond)
 		}
 		
-		return nil, fmt.Errorf("failed to acquire migration lock after %d retries (another process may be running migrations)", maxRetries)
+		return nil, fmt.Errorf("failed to acquire migration lock after %d retries", maxRetries)
 	}
 }
 
