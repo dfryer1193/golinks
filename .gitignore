@@ -40,4 +40,4 @@ TEST_REPORT*.md
 test_golinks.sh
 
 # Build artifacts
-golinks
+/golinks

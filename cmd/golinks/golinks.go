@@ -24,17 +24,19 @@ import (
 
 func main() {
 	if len(os.Args) > 1 && os.Args[1] == "migrate" {
-		// Check if 'status' subcommand is present
+		// Check if second argument is 'status' subcommand (positional)
+		// Usage: golinks migrate [status] -storage <type> -config <path>
 		statusCmd := false
-		newArgs := []string{os.Args[0]}
-		for i := 2; i < len(os.Args); i++ {
-			if os.Args[i] == "status" {
-				statusCmd = true
-			} else {
-				newArgs = append(newArgs, os.Args[i])
-			}
+		if len(os.Args) > 2 && os.Args[2] == "status" {
+			statusCmd = true
+			// Remove both 'migrate' and 'status' from os.Args
+			// This leaves: [golinks, -storage, SQLITE, -config, test.db]
+			os.Args = append([]string{os.Args[0]}, os.Args[3:]...)
+		} else {
+			// Remove just 'migrate' from os.Args
+			// This leaves: [golinks, -storage, SQLITE, -config, test.db]
+			os.Args = append([]string{os.Args[0]}, os.Args[2:]...)
 		}
-		os.Args = newArgs
 		runMigration(statusCmd)
 		return
 	}
