@@ -139,8 +139,9 @@ RUN apk --no-cache add ca-certificates sqlite
 WORKDIR /root/
 COPY --from=builder /app/golinks .
 
-# Initialize database
-RUN ./golinks migrate -storage SQLITE -config /data/golinks.db
+# Create data directory and initialize database
+RUN mkdir -p /data && \
+    ./golinks migrate -storage SQLITE -config /data/golinks.db
 
 # Run server
 VOLUME ["/data"]
