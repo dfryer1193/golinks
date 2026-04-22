@@ -150,6 +150,13 @@ func (m *Migrator) getAppliedMigrations() (map[string]bool, error) {
 
 // Migrate runs all pending migrations
 func (m *Migrator) Migrate() error {
+	// Acquire migration lock to prevent concurrent runs
+	unlock, err := m.acquireMigrationLock()
+	if err != nil {
+		return fmt.Errorf("failed to acquire migration lock: %w", err)
+	}
+	defer unlock()
+
 	applied, err := m.getAppliedMigrations()
 	if err != nil {
 		return err
@@ -206,12 +213,14 @@ func (m *Migrator) applyMigration(migration Migration) error {
 		return fmt.Errorf("failed to execute migration SQL: %w", err)
 	}
 
-	// Record migration as applied
+	// Record migration as applied (idempotent insert)
 	var insertSQL string
 	if m.dbType == "postgres" {
-		insertSQL = "INSERT INTO schema_migrations (version, applied_at) VALUES ($1, $2)"
+		// PostgreSQL: INSERT ... ON CONFLICT DO NOTHING
+		insertSQL = "INSERT INTO schema_migrations (version, applied_at) VALUES ($1, $2) ON CONFLICT (version) DO NOTHING"
 	} else {
-		insertSQL = "INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)"
+		// SQLite: INSERT OR IGNORE
+		insertSQL = "INSERT OR IGNORE INTO schema_migrations (version, applied_at) VALUES (?, ?)"
 	}
 
 	_, err = tx.Exec(insertSQL, migration.Version, time.Now())
@@ -224,6 +233,89 @@ func (m *Migrator) applyMigration(migration Migration) error {
 	}
 
 	return nil
+}
+
+// acquireMigrationLock acquires a database-level lock for migrations
+// Returns an unlock function that must be called to release the lock
+func (m *Migrator) acquireMigrationLock() (func() error, error) {
+	if m.dbType == "postgres" {
+		// PostgreSQL: Use advisory lock
+		// Lock ID: 123456789 (arbitrary but consistent for this application)
+		const lockID = 123456789
+		
+		_, err := m.db.Exec("SELECT pg_advisory_lock($1)", lockID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to acquire advisory lock: %w", err)
+		}
+		
+		unlock := func() error {
+			_, err := m.db.Exec("SELECT pg_advisory_unlock($1)", lockID)
+			if err != nil {
+				log.Warn().Err(err).Msg("Failed to release advisory lock")
+				return err
+			}
+			return nil
+		}
+		
+		log.Debug().Msg("Acquired PostgreSQL advisory lock for migrations")
+		return unlock, nil
+	} else {
+		// SQLite: Use application-level locking via a lock table
+		// Create lock table if it doesn't exist
+		_, err := m.db.Exec(`
+			CREATE TABLE IF NOT EXISTS migration_lock (
+				id INTEGER PRIMARY KEY CHECK (id = 1),
+				locked_at TIMESTAMP
+			)
+		`)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create lock table: %w", err)
+		}
+		
+		// Try to acquire lock with IMMEDIATE transaction
+		// This prevents other processes from running migrations concurrently
+		// Use a short retry loop to handle contention
+		maxRetries := 30
+		for i := 0; i < maxRetries; i++ {
+			tx, err := m.db.Begin()
+			if err != nil {
+				return nil, fmt.Errorf("failed to begin transaction: %w", err)
+			}
+			
+			// Try to insert lock row (only one can succeed due to PRIMARY KEY)
+			result, err := tx.Exec("INSERT OR IGNORE INTO migration_lock (id, locked_at) VALUES (1, ?)", time.Now())
+			if err != nil {
+				tx.Rollback()
+				return nil, fmt.Errorf("failed to acquire lock: %w", err)
+			}
+			
+			rowsAffected, _ := result.RowsAffected()
+			if rowsAffected > 0 {
+				// We got the lock, commit to hold it
+				if err := tx.Commit(); err != nil {
+					return nil, fmt.Errorf("failed to commit lock transaction: %w", err)
+				}
+				
+				unlock := func() error {
+					_, err := m.db.Exec("DELETE FROM migration_lock WHERE id = 1")
+					if err != nil {
+						log.Warn().Err(err).Msg("Failed to release migration lock")
+						return err
+					}
+					return nil
+				}
+				
+				log.Debug().Msg("Acquired SQLite migration lock")
+				return unlock, nil
+			}
+			
+			// Lock is held by another process, rollback and retry
+			tx.Rollback()
+			time.Sleep(100 * time.Millisecond)
+		}
+		
+		return nil, fmt.Errorf("failed to acquire migration lock after %d retries (another process may be running migrations)", maxRetries)
+	}
 }
 
 // Status returns the current migration status
