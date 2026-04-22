@@ -116,11 +116,17 @@ func (l *CachingLinkMap) GetFiltered(keys []string) map[string]string {
 // be duplicated in the backing file, and the value in the live map will be
 // replaced.
 func (l *CachingLinkMap) Put(key string, target *url.URL) error {
-	go l.store.Put(key, target.String())
-
+	// Update in-memory map immediately for fast response
 	l.mapLock.Lock()
-	defer l.mapLock.Unlock()
 	l.m[key] = target.String()
+	l.mapLock.Unlock()
+
+	// Persist to storage asynchronously
+	go func() {
+		if err := l.store.Put(key, target.String()); err != nil {
+			log.Error().Err(err).Str("key", key).Msg("Failed to persist link to storage")
+		}
+	}()
 
 	return nil
 }
@@ -136,22 +142,36 @@ func (l *CachingLinkMap) Delete(key string) error {
 	}
 	l.mapLock.RUnlock()
 
-	go l.store.Delete(key)
+	// Delete from in-memory map immediately
 	l.mapLock.Lock()
 	delete(l.m, key)
 	l.mapLock.Unlock()
+
+	// Persist to storage asynchronously
+	go func() {
+		if err := l.store.Delete(key); err != nil {
+			log.Error().Err(err).Str("key", key).Msg("Failed to delete link from storage")
+		}
+	}()
+
 	return nil
 }
 
 // Update updates an existing entry in the link map. This should only be used to
 // update existing entries, as Put is much more efficient for additions.
 func (l *CachingLinkMap) Update(key string, target *url.URL) error {
-	go l.store.Update(key, target.String())
-
+	// Update in-memory map immediately for fast response
 	l.mapLock.Lock()
-	defer l.mapLock.Unlock()
-
 	l.m[key] = target.String()
+	l.mapLock.Unlock()
+
+	// Persist to storage asynchronously
+	go func() {
+		if err := l.store.Update(key, target.String()); err != nil {
+			log.Error().Err(err).Str("key", key).Msg("Failed to update link in storage")
+		}
+	}()
+
 	return nil
 }
 
