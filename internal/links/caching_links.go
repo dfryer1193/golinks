@@ -165,3 +165,7 @@ func (l *CachingLinkMap) ReplaceAll(mapReader io.Reader) error {
 	l.m = newMap
 	return nil
 }
+
+func (l *CachingLinkMap) Close() error {
+	return l.store.Close()
+}

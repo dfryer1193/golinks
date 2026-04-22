@@ -19,6 +19,7 @@ type LinkMap interface {
 	// TODO: Make target a string so we can support parameterized links
 	Update(key string, target *url.URL) error
 	ReplaceAll(mapReader io.Reader) error
+	Close() error
 }
 
 type ParseError struct{}
