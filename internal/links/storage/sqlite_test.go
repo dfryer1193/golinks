@@ -13,9 +13,12 @@ func TestSQLiteStorage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewSQLiteStorage() error = %v", err)
 	}
+	defer storage.Close()
 
 	// Test Put
-	storage.Put("test", "https://example.com")
+	if err := storage.Put("test", "https://example.com"); err != nil {
+		t.Fatalf("Put() error = %v", err)
+	}
 
 	// Test Read
 	links, err := storage.Read()
@@ -30,7 +33,9 @@ func TestSQLiteStorage(t *testing.T) {
 	}
 
 	// Test Update
-	storage.Update("test", "https://example.org")
+	if err := storage.Update("test", "https://example.org"); err != nil {
+		t.Fatalf("Update() error = %v", err)
+	}
 	links, err = storage.Read()
 	if err != nil {
 		t.Fatalf("Read() error = %v", err)
@@ -40,7 +45,9 @@ func TestSQLiteStorage(t *testing.T) {
 	}
 
 	// Test Delete
-	storage.Delete("test")
+	if err := storage.Delete("test"); err != nil {
+		t.Fatalf("Delete() error = %v", err)
+	}
 	links, err = storage.Read()
 	if err != nil {
 		t.Fatalf("Read() error = %v", err)

@@ -10,8 +10,13 @@ import (
 
 func TestLinkMap_Delete(t *testing.T) {
 	links := NewCachingLinkMap(storage.NONE, "")
-	links.Put("foo", &url.URL{Scheme: "https", Host: "foo.com"})
-	links.Put("bar", &url.URL{Scheme: "https", Host: "bar.com"})
+	defer links.Close()
+	if err := links.Put("foo", &url.URL{Scheme: "https", Host: "foo.com"}); err != nil {
+		t.Fatalf("Put() error = %v", err)
+	}
+	if err := links.Put("bar", &url.URL{Scheme: "https", Host: "bar.com"}); err != nil {
+		t.Fatalf("Put() error = %v", err)
+	}
 	tests := []struct {
 		name    string
 		key     string
@@ -23,7 +28,9 @@ func TestLinkMap_Delete(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			links.Delete(tt.key)
+			if err := links.Delete(tt.key); err != nil {
+				t.Fatalf("Delete() error = %v", err)
+			}
 			if _, existsActual := links.Get(tt.key); tt.present != existsActual {
 				log.Fatal().Msgf("Expected entry %s to not be present", tt.key)
 			}
@@ -33,8 +40,13 @@ func TestLinkMap_Delete(t *testing.T) {
 
 func TestLinkMap_Get(t *testing.T) {
 	links := NewCachingLinkMap(storage.NONE, "")
-	links.Put("foo", &url.URL{Scheme: "https", Host: "foo.com"})
-	links.Put("bar", &url.URL{Scheme: "https", Host: "bar.com"})
+	defer links.Close()
+	if err := links.Put("foo", &url.URL{Scheme: "https", Host: "foo.com"}); err != nil {
+		t.Fatalf("Put() error = %v", err)
+	}
+	if err := links.Put("bar", &url.URL{Scheme: "https", Host: "bar.com"}); err != nil {
+		t.Fatalf("Put() error = %v", err)
+	}
 	tests := []struct {
 		name    string
 		key     string
@@ -66,9 +78,16 @@ func TestLinkMap_Get(t *testing.T) {
 
 func TestLinkMap_GetFiltered(t *testing.T) {
 	links := NewCachingLinkMap(storage.NONE, "")
-	links.Put("foo", &url.URL{Scheme: "https", Host: "foo.com"})
-	links.Put("bar", &url.URL{Scheme: "https", Host: "bar.com"})
-	links.Put("foobar", &url.URL{Scheme: "https", Host: "foobar.com"})
+	defer links.Close()
+	if err := links.Put("foo", &url.URL{Scheme: "https", Host: "foo.com"}); err != nil {
+		t.Fatalf("Put() error = %v", err)
+	}
+	if err := links.Put("bar", &url.URL{Scheme: "https", Host: "bar.com"}); err != nil {
+		t.Fatalf("Put() error = %v", err)
+	}
+	if err := links.Put("foobar", &url.URL{Scheme: "https", Host: "foobar.com"}); err != nil {
+		t.Fatalf("Put() error = %v", err)
+	}
 	tests := []struct {
 		name     string
 		keys     []string
@@ -109,6 +128,7 @@ func TestLinkMap_GetFiltered(t *testing.T) {
 
 func TestLinkMap_Put(t *testing.T) {
 	links := NewCachingLinkMap(storage.NONE, "")
+	defer links.Close()
 	tests := []struct {
 		name  string
 		key   string
@@ -119,7 +139,9 @@ func TestLinkMap_Put(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			links.Put(tt.key, tt.value)
+			if err := links.Put(tt.key, tt.value); err != nil {
+				t.Fatalf("Put() error = %v", err)
+			}
 			if val, exists := links.Get(tt.key); !exists || val != tt.value.String() {
 				log.Fatal().Msgf("Expected entry %s to contain %s, got %s instead.", tt.key, tt.value, val)
 			}
@@ -129,6 +151,7 @@ func TestLinkMap_Put(t *testing.T) {
 
 func TestLinkMap_Update(t *testing.T) {
 	links := NewCachingLinkMap(storage.NONE, "")
+	defer links.Close()
 	tests := []struct {
 		name  string
 		key   string
@@ -139,7 +162,9 @@ func TestLinkMap_Update(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			links.Update(tt.key, tt.value)
+			if err := links.Update(tt.key, tt.value); err != nil {
+				t.Fatalf("Update() error = %v", err)
+			}
 			if val, exists := links.Get(tt.key); !exists || val != tt.value.String() {
 				log.Fatal().Msgf("Expected entry %s to contain %s, got %s instead.", tt.key, tt.value, val)
 			}
