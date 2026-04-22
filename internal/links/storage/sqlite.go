@@ -66,22 +66,28 @@ func (s *SQLiteStorage) Get(key string) (string, bool) {
 	return target, true
 }
 
-func (s *SQLiteStorage) Put(key string, target string) {
-	if _, err := s.db.Exec("INSERT OR REPLACE INTO links (key, target) VALUES (?, ?)", key, target); err != nil {
-		log.Error().Err(err).Msg("failed to insert link")
+func (s *SQLiteStorage) Put(key string, target string) error {
+	_, err := s.db.Exec("INSERT OR REPLACE INTO links (key, target) VALUES (?, ?)", key, target)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to insert or replace link")
 	}
+	return err
 }
 
-func (s *SQLiteStorage) Delete(key string) {
-	if _, err := s.db.Exec("DELETE FROM links WHERE key = ?", key); err != nil {
+func (s *SQLiteStorage) Delete(key string) error {
+	_, err := s.db.Exec("DELETE FROM links WHERE key = ?", key)
+	if err != nil {
 		log.Error().Err(err).Msg("failed to delete link")
 	}
+	return err
 }
 
-func (s *SQLiteStorage) Update(key string, target string) {
-	if _, err := s.db.Exec("UPDATE links SET target = ? WHERE key = ?", target, key); err != nil {
+func (s *SQLiteStorage) Update(key string, target string) error {
+	_, err := s.db.Exec("UPDATE links SET target = ? WHERE key = ?", target, key)
+	if err != nil {
 		log.Error().Err(err).Msg("failed to update link")
 	}
+	return err
 }
 
 func (s *SQLiteStorage) GetReloadChannel() <-chan bool {
@@ -125,4 +131,8 @@ func (s *SQLiteStorage) ReplaceConfig(reader io.Reader) (map[string]string, erro
 	}
 
 	return newLinks, nil
+}
+
+func (s *SQLiteStorage) Close() error {
+	return s.db.Close()
 }

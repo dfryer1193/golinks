@@ -10,12 +10,12 @@ import (
 type Storage interface {
 	Read() (map[string]string, error)
 	Get(key string) (string, bool)
-	// TODO: Make this return an error
-	Put(key string, target string)
-	Delete(key string)
-	Update(key string, target string)
+	Put(key string, target string) error
+	Delete(key string) error
+	Update(key string, target string) error
 	GetReloadChannel() <-chan bool
 	ReplaceConfig(reader io.Reader) (map[string]string, error)
+	Close() error
 }
 
 type StorageType int
