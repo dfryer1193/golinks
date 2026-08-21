@@ -56,6 +56,10 @@ line, separated by spaces, like so:
 
     test https://www.google.com
 
-The value of the pair must be a full web address. Query params are not
-respected, though full paths are.
-```
+
+## Docker & Deployment
+Multi-architecture (`linux/amd64`, `linux/arm64`) Docker images are pushed to the Harbor registry under the `library` project:
+
+- **Registry Image**: `registry.werewolves.fyi/library/golinks:<tag>`
+- **Build & Push**: Run `make` to build multi-arch images, create the manifest list, and push to Harbor.
+

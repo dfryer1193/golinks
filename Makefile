@@ -1,5 +1,5 @@
 # Define variables
-IMAGE_NAME := golinks
+IMAGE_NAME := library/golinks
 TAG := $(shell \
        LASTTAG=$$(git describe --tags --abbrev=0); \
        COMMITS_SINCE=$$(git rev-list $$LASTTAG..HEAD --count); \
