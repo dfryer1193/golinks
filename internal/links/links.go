@@ -5,6 +5,7 @@ import (
 	"net/url"
 
 	"github.com/dfryer1193/golinks/internal/links/storage"
+	"github.com/rs/zerolog/log"
 )
 
 type LinkMap interface {
@@ -13,10 +14,8 @@ type LinkMap interface {
 	GetAllKeys() []string
 	GetFiltered(keys []string) map[string]string
 
-	// TODO: Make target a string so we can support parameterized links
 	Put(key string, target *url.URL) error
 	Delete(key string) error
-	// TODO: Make target a string so we can support parameterized links
 	Update(key string, target *url.URL) error
 	ReplaceAll(mapReader io.Reader) error
 }
@@ -36,7 +35,15 @@ func buildStorage(persistType storage.StorageType, requestedConfig string) stora
 	case storage.SQLITE:
 		s, err := storage.NewSQLiteStorage(requestedConfig)
 		if err != nil {
-			panic(err)
+			log.Error().Err(err).Msg("Failed to initialize SQLite storage")
+			return storage.NewNoneStorage()
+		}
+		return s
+	case storage.POSTGRES:
+		s, err := storage.NewPostgresStorage(requestedConfig)
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to initialize Postgres storage")
+			return storage.NewNoneStorage()
 		}
 		return s
 	default:

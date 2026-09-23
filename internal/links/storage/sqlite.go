@@ -66,22 +66,19 @@ func (s *SQLiteStorage) Get(key string) (string, bool) {
 	return target, true
 }
 
-func (s *SQLiteStorage) Put(key string, target string) {
-	if _, err := s.db.Exec("INSERT OR REPLACE INTO links (key, target) VALUES (?, ?)", key, target); err != nil {
-		log.Error().Err(err).Msg("failed to insert link")
-	}
+func (s *SQLiteStorage) Put(key string, target string) error {
+	_, err := s.db.Exec("INSERT OR REPLACE INTO links (key, target) VALUES (?, ?)", key, target)
+	return err
 }
 
-func (s *SQLiteStorage) Delete(key string) {
-	if _, err := s.db.Exec("DELETE FROM links WHERE key = ?", key); err != nil {
-		log.Error().Err(err).Msg("failed to delete link")
-	}
+func (s *SQLiteStorage) Delete(key string) error {
+	_, err := s.db.Exec("DELETE FROM links WHERE key = ?", key)
+	return err
 }
 
-func (s *SQLiteStorage) Update(key string, target string) {
-	if _, err := s.db.Exec("UPDATE links SET target = ? WHERE key = ?", target, key); err != nil {
-		log.Error().Err(err).Msg("failed to update link")
-	}
+func (s *SQLiteStorage) Update(key string, target string) error {
+	_, err := s.db.Exec("UPDATE links SET target = ? WHERE key = ?", target, key)
+	return err
 }
 
 func (s *SQLiteStorage) GetReloadChannel() <-chan bool {
