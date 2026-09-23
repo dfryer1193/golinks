@@ -43,13 +43,16 @@ Usage: golinks [-port 8080] [-config ./links]
                                                         specified by the -config
                                                         option (e.g. 
                                                         postgres://user:pass@host/db).
--config <absolute path to config file>  The path to the preferred config file.
+-config <path or env>       The path to the preferred config file.
                                         If this file is not present, falls back
                                         to default locations in the following
                                         order:
                                             * "./links"
                                             * "~/.config/golinks/links"
                                             * "/etc/golinks/links"
+                                        For POSTGRES, this can be omitted if
+                                        DATABASE_URL or GOLINKS_DB_URL env var
+                                        is set. Defaults to "FILE".
 -level <loglevel>                       The loglevel to log at. Defaults to
                                         "INFO"
 -migrate-from <path to file>            Migrate links from a file-based config
@@ -109,6 +112,14 @@ func GetConfig() *Config {
 	if err != nil {
 		fmt.Println("Invalid log level")
 		os.Exit(1)
+	}
+
+	if configFile == "" {
+		configFile = os.Getenv("DATABASE_URL")
+	}
+
+	if configFile == "" {
+		configFile = os.Getenv("GOLINKS_DB_URL")
 	}
 
 	return &Config{
