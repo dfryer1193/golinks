@@ -74,21 +74,15 @@ func (l *BaseLinkMap) GetFiltered(keys []string) map[string]string {
 }
 
 func (l *BaseLinkMap) Put(key string, target *url.URL) error {
-	l.store.Put(key, target.String())
-
-	return nil
+	return l.store.Put(key, target.String())
 }
 
 func (l *BaseLinkMap) Delete(key string) error {
-	l.store.Delete(key)
-
-	return nil
+	return l.store.Delete(key)
 }
 
 func (l *BaseLinkMap) Update(key string, target *url.URL) error {
-	l.store.Update(key, target.String())
-
-	return nil
+	return l.store.Update(key, target.String())
 }
 
 func (l *BaseLinkMap) ReplaceAll(reader io.Reader) error {

@@ -4,11 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+
 	"github.com/dfryer1193/golinks/config"
 	"github.com/dfryer1193/golinks/internal/handler"
+	"github.com/dfryer1193/golinks/internal/links/storage"
 	"github.com/dfryer1193/mjolnir/router"
 	"net/http"
-	"os"
 	"os/signal"
 	"time"
 
@@ -19,6 +21,14 @@ import (
 func main() {
 	cfg := config.GetConfig()
 	zerolog.SetGlobalLevel(cfg.LogLevel)
+
+	// Handle migration if requested
+	if cfg.MigrateFrom != "" {
+		if err := runMigration(cfg); err != nil {
+			log.Fatal().Err(err).Msg("Migration failed")
+		}
+		return
+	}
 
 	r := router.New()
 	handler.NewGoLinkService(r, cfg)
@@ -48,4 +58,26 @@ func main() {
 	}
 
 	log.Info().Msg("Server stopped")
+}
+
+func runMigration(cfg *config.Config) error {
+	if cfg.StorageType != storage.SQLITE && cfg.StorageType != storage.POSTGRES {
+		return fmt.Errorf("--migrate-from requires storage type SQLITE or POSTGRES, got %s", cfg.StorageType)
+	}
+
+	var target storage.Storage
+	var err error
+
+	switch cfg.StorageType {
+	case storage.SQLITE:
+		target, err = storage.NewSQLiteStorage(cfg.ConfigFile)
+	case storage.POSTGRES:
+		target, err = storage.NewPostgresStorage(cfg.ConfigFile)
+	}
+
+	if err != nil {
+		return fmt.Errorf("failed to initialize target storage: %w", err)
+	}
+
+	return storage.MigrateFromFile(cfg.MigrateFrom, target)
 }
